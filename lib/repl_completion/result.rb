@@ -1,0 +1,138 @@
+# frozen_string_literal: true
+
+require_relative 'require_paths'
+
+module ReplCompletion
+  class Result
+    HIDDEN_METHODS = %w[Namespace TypeName] # defined by rbs, should be hidden
+    RESERVED_WORDS = %w[
+      __ENCODING__ __LINE__ __FILE__
+      BEGIN END
+      alias and
+      begin break
+      case class
+      def defined? do
+      else elsif end ensure
+      false for
+      if in
+      module
+      next nil not
+      or
+      redo rescue retry return
+      self super
+      then true
+      undef unless until
+      when while
+      yield
+    ]
+
+    def initialize(analyze_result, binding)
+      @analyze_result = analyze_result
+      @binding = binding
+    end
+
+    def completion_candidates
+      verbose, $VERBOSE = $VERBOSE, nil
+      candidates = case @analyze_result
+      in [:require, name]
+        RequirePaths.require_completions(name)
+      in [:require_relative, name]
+        RequirePaths.require_relative_completions(name, @binding)
+      in [:call_or_const, name, type, self_call]
+        ((self_call ? type.all_methods : type.methods).map(&:to_s) - HIDDEN_METHODS) | type.constants
+      in [:const, name, type, scope]
+        if type
+          scope_constants = type.types.flat_map do |t|
+            scope.table_module_constants(t.module_or_class) if t.is_a?(Types::SingletonType)
+          end
+          (scope_constants.compact | type.constants.map(&:to_s)).sort
+        else
+          scope.constants.sort | RESERVED_WORDS
+        end
+      in [:ivar, name, scope]
+        ivars = scope.instance_variables.sort
+        name == '@' ? ivars + scope.class_variables.sort : ivars
+      in [:cvar, name, scope]
+        scope.class_variables
+      in [:gvar, name, scope]
+        scope.global_variables
+      in [:symbol, name]
+        Symbol.all_symbols.map { _1.inspect[1..] }
+      in [:call, name, type, self_call]
+        (self_call ? type.all_methods : type.methods).map(&:to_s) - HIDDEN_METHODS
+      in [:lvar_or_method, name, scope]
+        scope.self_type.all_methods.map(&:to_s) | scope.local_variables | RESERVED_WORDS
+      else
+        []
+      end
+      candidates.select { _1.start_with?(name) }.map { _1[name.size..] }
+    ensure
+      $VERBOSE = verbose
+    end
+
+    def doc_namespace(matched)
+      verbose, $VERBOSE = $VERBOSE, nil
+      case @analyze_result
+      in [:call_or_const, prefix, type, _self_call]
+        call_or_const_doc type, prefix + matched
+      in [:const, prefix, type, scope]
+        if type
+          call_or_const_doc type, prefix + matched
+        else
+          value_doc scope[prefix + matched]
+        end
+      in [:gvar, prefix, scope]
+        value_doc scope[prefix + matched]
+      in [:ivar, prefix, scope]
+        value_doc scope[prefix + matched]
+      in [:cvar, prefix, scope]
+        value_doc scope[prefix + matched]
+      in [:call, prefix, type, _self_call]
+        method_doc type, prefix + matched
+      in [:lvar_or_method, prefix, scope]
+        if scope.local_variables.include?(prefix + matched)
+          value_doc scope[prefix + matched]
+        else
+          method_doc scope.self_type, prefix + matched
+        end
+      else
+      end
+    ensure
+      $VERBOSE = verbose
+    end
+
+    private
+
+    def method_doc(type, name)
+      type = type.types.find { _1.all_methods.include? name.to_sym }
+      case type
+      when Types::SingletonType
+        "#{Types.class_name_of(type.module_or_class)}.#{name}"
+      when Types::InstanceType
+        "#{Types.class_name_of(type.klass)}##{name}"
+      end
+    end
+
+    def call_or_const_doc(type, name)
+      if name =~ /\A[A-Z]/
+        type = type.types.grep(Types::SingletonType).find { _1.module_or_class.const_defined?(name) }
+        type.module_or_class == Object ? name : "#{Types.class_name_of(type.module_or_class)}::#{name}" if type
+      else
+        method_doc(type, name)
+      end
+    end
+
+    def value_doc(type)
+      return unless type
+      type.types.each do |t|
+        case t
+        when Types::SingletonType
+          return Types.class_name_of(t.module_or_class)
+        when Types::InstanceType
+          return Types.class_name_of(t.klass)
+        end
+      end
+      nil
+    end
+  end
+end
