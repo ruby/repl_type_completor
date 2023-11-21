@@ -44,7 +44,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        prism: ['0.17.1']
+        prism: ['0.18.0']
     env:
       GEMFILE_PRISM_VERSION: ${{matrix.prism}}
     steps:

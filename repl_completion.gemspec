@@ -31,6 +31,6 @@ Gem::Specification.new do |spec|
   spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "prism", ">= 0.17.1"
+  spec.add_dependency "prism", ">= 0.18.0"
   spec.add_dependency "rbs", ">= 2.7.0"
 end
