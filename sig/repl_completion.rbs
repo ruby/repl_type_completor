@@ -9,7 +9,7 @@ module ReplCompletion
   def self.analyze: (String, Binding) -> Result?
 
   def self.rbs_load_error: () -> Exception?
-  def self.last_analyze_error: () -> Exception?
+  def self.last_completion_error: () -> Exception?
 
   def self.rbs_load_started?: () -> bool
   def self.rbs_loaded?: () -> bool

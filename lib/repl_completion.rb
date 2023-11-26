@@ -6,7 +6,7 @@ require_relative 'repl_completion/result'
 
 module ReplCompletion
   class << self
-    attr_reader :last_analyze_error
+    attr_reader :last_completion_error
 
     def rbs_load_error
       Types.rbs_load_error
@@ -29,20 +29,18 @@ module ReplCompletion
     end
 
     def analyze(code, binding)
-      preload_rbs
-      begin
-        verbose, $VERBOSE = $VERBOSE, nil
-        result = analyze_code(code, binding)
-      rescue Exception => e
-        handle_error(e)
-      ensure
-        $VERBOSE = verbose
-      end
+      verbose, $VERBOSE = $VERBOSE, nil
+      result = analyze_code(code, binding)
       Result.new(result, binding) if result
+    rescue Exception => e
+      handle_exception(e)
+      nil
+    ensure
+      $VERBOSE = verbose
     end
 
-    def handle_error(e)
-      @last_analyze_error = e
+    def handle_exception(e)
+      @last_completion_error = e
     end
 
     def info

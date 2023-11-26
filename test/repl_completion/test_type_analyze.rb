@@ -6,17 +6,17 @@ require_relative './helper'
 module TestReplCompletion
   class AnalyzeTest < TestCase
     def setup
-      @handle_error_method = ReplCompletion.method(:handle_error)
-      ReplCompletion.singleton_class.remove_method(:handle_error)
-      def ReplCompletion.handle_error(e)
+      @handle_exception_method = ReplCompletion.method(:handle_exception)
+      ReplCompletion.singleton_class.remove_method(:handle_exception)
+      def ReplCompletion.handle_exception(e)
         raise e
       end
       ReplCompletion::Types.load_rbs_builder unless ReplCompletion::Types.rbs_builder
     end
     
     def teardown
-      ReplCompletion.singleton_class.remove_method(:handle_error)
-      ReplCompletion.define_singleton_method(:handle_error, &@handle_error_method)
+      ReplCompletion.singleton_class.remove_method(:handle_exception)
+      ReplCompletion.define_singleton_method(:handle_exception, &@handle_exception_method)
     end
 
     def empty_binding

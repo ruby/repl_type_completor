@@ -166,11 +166,52 @@ module TestReplCompletion
 
     def test_repl_completion_api
       assert_nil ReplCompletion.rbs_load_error
-      assert_nil ReplCompletion.last_analyze_error
+      assert_nil ReplCompletion.last_completion_error
       assert_equal true, ReplCompletion.rbs_load_started?
       assert_equal true, ReplCompletion.rbs_loaded?
       assert_nothing_raised { ReplCompletion.preload_rbs }
       assert_nothing_raised { ReplCompletion.load_rbs }
+    end
+
+    def with_failing_method(klass, method_name, message)
+      original_method = klass.instance_method(method_name)
+      klass.remove_method(method_name)
+      klass.define_method(method_name) do |*, **|
+        raise Exception.new(message)
+      end
+      yield
+    ensure
+      klass.remove_method(method_name)
+      klass.define_method(method_name, original_method)
+    end
+
+    def test_analyze_error
+      with_failing_method(ReplCompletion.singleton_class, :analyze_code, 'error_in_analyze_code') do
+        assert_nil ReplCompletion.analyze '1.', binding
+      end
+      assert_equal 'error_in_analyze_code', ReplCompletion.last_completion_error&.message
+    ensure
+      ReplCompletion.instance_variable_set(:@last_completion_error, nil)
+    end
+
+    def test_completion_candidates_error
+      result = ReplCompletion.analyze '1.', binding
+      with_failing_method(ReplCompletion::Types::InstanceType, :methods, 'error_in_methods') do
+        assert_equal [], result.completion_candidates
+      end
+      assert_equal 'error_in_methods', ReplCompletion.last_completion_error&.message
+    ensure
+      ReplCompletion.instance_variable_set(:@last_completion_error, nil)
+    end
+
+    def test_doc_namespace_error
+      result = ReplCompletion.analyze '1.', binding
+      with_failing_method(ReplCompletion::Result, :method_doc, 'error_in_method_doc') do
+        assert_nil result.doc_namespace('abs')
+      end
+      assert_equal 'error_in_method_doc', ReplCompletion.last_completion_error&.message
+    ensure
+      ReplCompletion.instance_variable_set(:@last_completion_error, nil)
     end
 
     def test_info

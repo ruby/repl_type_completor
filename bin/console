@@ -11,5 +11,6 @@ require "repl_completion"
 # require "pry"
 # Pry.start
 
+ReplCompletion.preload_rbs
 require "irb"
 IRB.start(__FILE__)

@@ -66,6 +66,9 @@ module ReplCompletion
         []
       end
       candidates.select { _1.start_with?(name) }.map { _1[name.size..] }
+    rescue Exception => e
+      ReplCompletion.handle_exception(e)
+      []
     ensure
       $VERBOSE = verbose
     end
@@ -97,6 +100,9 @@ module ReplCompletion
         end
       else
       end
+    rescue Exception => e
+      ReplCompletion.handle_exception(e)
+      nil
     ensure
       $VERBOSE = verbose
     end
