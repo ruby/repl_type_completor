@@ -1,8 +1,7 @@
 # ReplCompletion
 
-TODO: Delete this and the text below, and describe your gem
-
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/repl_completion`. To experiment with that code, run `bin/console` for an interactive prompt.
+ReplCompletion is a type based completor for REPL.
+It uses RBS type information, performs static type analytics, uses dynamic runtime information from binding.
 
 ## Installation
 
@@ -18,7 +17,25 @@ If bundler is not being used to manage dependencies, install the gem by executin
 
 ## Usage
 
-TODO: Write usage instructions here
+Require the library
+```ruby
+require 'repl_completion'
+```
+
+Load RBS with one of these. It will load core library signatures, `./rbs_collection.yaml` and `./sig/**/*.rbs`.
+```ruby
+ReplCompletion.preload_rbs # Recommended. Preload using thread
+ReplCompletion.load_rbs # Could take a seconds in large projects
+```
+
+Now you can get completion candidates.
+```ruby
+array = [1, 2, 3]
+class String; def upupup; end; end
+result = ReplCompletion.analyze('array.map do str = _1.chr; str.up', binding)
+result.completion_candidates #=> ["case", "case!", "to", "upup"]
+result.doc_namespace('case') #=> "String#upcase"
+```
 
 ## Development
 
@@ -29,6 +46,16 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 ## Contributing
 
 Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/repl_completion.
+
+When something is wrong, these methods will provide some debug information.
+```ruby
+ReplCompletion.info
+ReplCompletion.rbs_load_started?
+ReplCompletion.rbs_loaded?
+ReplCompletion.rbs_load_error
+ReplCompletion.last_completion_error
+ReplCompletion.analyze(code_to_complete, binding)
+```
 
 ## License
 
