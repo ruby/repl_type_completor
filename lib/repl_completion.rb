@@ -60,9 +60,6 @@ module ReplCompletion
     private
 
     def analyze_code(code, binding = Object::TOPLEVEL_BINDING)
-      # Workaround for https://github.com/ruby/prism/issues/1592
-      return if code.match?(/%[qQ]\z/)
-
       ast = Prism.parse(code, scopes: [binding.local_variables]).value
       name = code[/(@@|@|\$)?\w*[!?=]?\z/]
       *parents, target_node = find_target ast, code.bytesize - name.bytesize
