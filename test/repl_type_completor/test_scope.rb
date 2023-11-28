@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
-require 'repl_completion'
+require 'repl_type_completor'
 require_relative './helper'
 
-module TestReplCompletion
+module TestReplTypeCompletor
   class ScopeTest < TestCase
     A, B, C, D, E, F, G, H, I, J, K = ('A'..'K').map do |name|
       klass = Class.new
       klass.define_singleton_method(:inspect) { name }
-      ReplCompletion::Types::InstanceType.new(klass)
+      ReplTypeCompletor::Types::InstanceType.new(klass)
     end
 
     def assert_type(expected_types, type)
@@ -16,29 +16,29 @@ module TestReplCompletion
     end
 
     def table(*local_variable_names)
-      local_variable_names.to_h { [_1, ReplCompletion::Types::NIL] }
+      local_variable_names.to_h { [_1, ReplTypeCompletor::Types::NIL] }
     end
 
     def base_scope
-      ReplCompletion::RootScope.new(binding, Object.new, [])
+      ReplTypeCompletor::RootScope.new(binding, Object.new, [])
     end
 
     def test_lvar
-      scope = ReplCompletion::Scope.new base_scope, table('a')
+      scope = ReplTypeCompletor::Scope.new base_scope, table('a')
       scope['a'] = A
       assert_equal A, scope['a']
     end
 
     def test_conditional
-      scope = ReplCompletion::Scope.new base_scope, table('a')
+      scope = ReplTypeCompletor::Scope.new base_scope, table('a')
       scope.conditional do |sub_scope|
         sub_scope['a'] = A
       end
-      assert_type [A, ReplCompletion::Types::NIL], scope['a']
+      assert_type [A, ReplTypeCompletor::Types::NIL], scope['a']
     end
 
     def test_branch
-      scope = ReplCompletion::Scope.new base_scope, table('a', 'b', 'c', 'd')
+      scope = ReplTypeCompletor::Scope.new base_scope, table('a', 'b', 'c', 'd')
       scope['c'] = A
       scope['d'] = B
       scope.run_branches(
@@ -48,16 +48,16 @@ module TestReplCompletion
         -> { _1['a'] = _1['b'] = _1['c'] = F; _1.terminate }
       )
       assert_type [C, D, E], scope['a']
-      assert_type [ReplCompletion::Types::NIL, D, E], scope['b']
+      assert_type [ReplTypeCompletor::Types::NIL, D, E], scope['b']
       assert_type [A, C], scope['c']
       assert_type [C, D, E], scope['d']
     end
 
     def test_scope_local_variables
-      scope1 = ReplCompletion::Scope.new base_scope, table('a', 'b')
-      scope2 = ReplCompletion::Scope.new scope1, table('b', 'c'), trace_lvar: false
-      scope3 = ReplCompletion::Scope.new scope2, table('c', 'd')
-      scope4 = ReplCompletion::Scope.new scope2, table('d', 'e')
+      scope1 = ReplTypeCompletor::Scope.new base_scope, table('a', 'b')
+      scope2 = ReplTypeCompletor::Scope.new scope1, table('b', 'c'), trace_lvar: false
+      scope3 = ReplTypeCompletor::Scope.new scope2, table('c', 'd')
+      scope4 = ReplTypeCompletor::Scope.new scope2, table('d', 'e')
       assert_empty base_scope.local_variables
       assert_equal %w[a b], scope1.local_variables.sort
       assert_equal %w[b c], scope2.local_variables.sort
@@ -66,11 +66,11 @@ module TestReplCompletion
     end
 
     def test_nested_scope
-      scope = ReplCompletion::Scope.new base_scope, table('a', 'b', 'c')
+      scope = ReplTypeCompletor::Scope.new base_scope, table('a', 'b', 'c')
       scope['a'] = A
       scope['b'] = A
       scope['c'] = A
-      sub_scope = ReplCompletion::Scope.new scope, { 'c' => B }
+      sub_scope = ReplTypeCompletor::Scope.new scope, { 'c' => B }
       assert_type A, sub_scope['a']
 
       assert_type A, sub_scope['b']
@@ -88,20 +88,20 @@ module TestReplCompletion
     end
 
     def test_break
-      scope = ReplCompletion::Scope.new base_scope, table('a')
+      scope = ReplTypeCompletor::Scope.new base_scope, table('a')
       scope['a'] = A
-      breakable_scope = ReplCompletion::Scope.new scope, { ReplCompletion::Scope::BREAK_RESULT => nil }
+      breakable_scope = ReplTypeCompletor::Scope.new scope, { ReplTypeCompletor::Scope::BREAK_RESULT => nil }
       breakable_scope.conditional do |sub|
         sub['a'] = B
         assert_type [B], sub['a']
-        sub.terminate_with ReplCompletion::Scope::BREAK_RESULT, C
+        sub.terminate_with ReplTypeCompletor::Scope::BREAK_RESULT, C
         sub['a'] = C
         assert_type [C], sub['a']
       end
       assert_type [A], breakable_scope['a']
-      breakable_scope[ReplCompletion::Scope::BREAK_RESULT] = D
+      breakable_scope[ReplTypeCompletor::Scope::BREAK_RESULT] = D
       breakable_scope.merge_jumps
-      assert_type [C, D], breakable_scope[ReplCompletion::Scope::BREAK_RESULT]
+      assert_type [C, D], breakable_scope[ReplTypeCompletor::Scope::BREAK_RESULT]
       scope.update breakable_scope
       assert_type [A, B], scope['a']
     end

@@ -5,7 +5,7 @@ require_relative 'types'
 require_relative 'scope'
 require 'prism'
 
-module ReplCompletion
+module ReplTypeCompletor
   class TypeAnalyzer
     class DigTarget
       def initialize(parents, receiver, &block)

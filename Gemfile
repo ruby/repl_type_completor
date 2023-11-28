@@ -2,7 +2,7 @@
 
 source 'https://rubygems.org'
 
-# Specify your gem's dependencies in repl_completion.gemspec
+# Specify your gem's dependencies in repl_type_completor.gemspec
 gemspec
 
 gem 'rake', '~> 13.0'

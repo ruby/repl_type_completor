@@ -1,6 +1,6 @@
-# ReplCompletion
+# ReplTypeCompletor
 
-ReplCompletion is a type based completor for REPL.
+ReplTypeCompletor is a type based completor for REPL.
 It uses RBS type information, performs static type analytics, uses dynamic runtime information from binding.
 
 ## Installation
@@ -19,20 +19,20 @@ If bundler is not being used to manage dependencies, install the gem by executin
 
 Require the library
 ```ruby
-require 'repl_completion'
+require 'repl_type_completor'
 ```
 
 Load RBS with one of these. It will load core library signatures, `./rbs_collection.yaml` and `./sig/**/*.rbs`.
 ```ruby
-ReplCompletion.preload_rbs # Recommended. Preload using thread
-ReplCompletion.load_rbs # Could take a seconds in large projects
+ReplTypeCompletor.preload_rbs # Recommended. Preload using thread
+ReplTypeCompletor.load_rbs # Could take a seconds in large projects
 ```
 
 Now you can get completion candidates.
 ```ruby
 array = [1, 2, 3]
 class String; def upupup; end; end
-result = ReplCompletion.analyze('array.map do str = _1.chr; str.up', binding: binding)
+result = ReplTypeCompletor.analyze('array.map do str = _1.chr; str.up', binding: binding)
 result.completion_candidates #=> ["case", "case!", "to", "upup"]
 result.doc_namespace('case') #=> "String#upcase"
 ```
@@ -45,16 +45,16 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/repl_completion.
+Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/repl_type_completor.
 
 When something is wrong, these methods will provide some debug information.
 ```ruby
-ReplCompletion.info
-ReplCompletion.rbs_load_started?
-ReplCompletion.rbs_loaded?
-ReplCompletion.rbs_load_error
-ReplCompletion.last_completion_error
-ReplCompletion.analyze(code_to_complete, binding: binding)
+ReplTypeCompletor.info
+ReplTypeCompletor.rbs_load_started?
+ReplTypeCompletor.rbs_loaded?
+ReplTypeCompletor.rbs_load_error
+ReplTypeCompletor.last_completion_error
+ReplTypeCompletor.analyze(code_to_complete, binding: binding)
 ```
 
 ## License

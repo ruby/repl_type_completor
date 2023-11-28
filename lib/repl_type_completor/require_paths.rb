@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module ReplCompletion
+module ReplTypeCompletor
   module RequirePaths
     class << self
       def require_completions(target_path)

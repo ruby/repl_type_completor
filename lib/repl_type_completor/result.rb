@@ -2,7 +2,7 @@
 
 require_relative 'require_paths'
 
-module ReplCompletion
+module ReplTypeCompletor
   class Result
     HIDDEN_METHODS = %w[Namespace TypeName] # defined by rbs, should be hidden
     RESERVED_WORDS = %w[
@@ -68,7 +68,7 @@ module ReplCompletion
       end
       candidates.select { _1.start_with?(name) }.map { _1[name.size..] }
     rescue Exception => e
-      ReplCompletion.handle_exception(e)
+      ReplTypeCompletor.handle_exception(e)
       []
     ensure
       $VERBOSE = verbose
@@ -102,7 +102,7 @@ module ReplCompletion
       else
       end
     rescue Exception => e
-      ReplCompletion.handle_exception(e)
+      ReplTypeCompletor.handle_exception(e)
       nil
     ensure
       $VERBOSE = verbose

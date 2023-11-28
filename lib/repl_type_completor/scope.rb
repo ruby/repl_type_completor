@@ -3,8 +3,7 @@
 require 'set'
 require_relative 'types'
 
-module ReplCompletion
-
+module ReplTypeCompletor
   class RootScope
     attr_reader :module_nesting, :self_object
 

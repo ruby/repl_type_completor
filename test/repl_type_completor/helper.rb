@@ -3,7 +3,7 @@
 require 'test/unit'
 require 'core_assertions'
 
-module TestReplCompletion
+module TestReplTypeCompletor
   class TestCase < Test::Unit::TestCase
     include Test::Unit::CoreAssertions
   end

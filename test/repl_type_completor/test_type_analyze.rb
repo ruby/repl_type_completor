@@ -1,22 +1,22 @@
 # frozen_string_literal: true
 
-require 'repl_completion'
+require 'repl_type_completor'
 require_relative './helper'
 
-module TestReplCompletion
+module TestReplTypeCompletor
   class AnalyzeTest < TestCase
     def setup
-      @handle_exception_method = ReplCompletion.method(:handle_exception)
-      ReplCompletion.singleton_class.remove_method(:handle_exception)
-      def ReplCompletion.handle_exception(e)
+      @handle_exception_method = ReplTypeCompletor.method(:handle_exception)
+      ReplTypeCompletor.singleton_class.remove_method(:handle_exception)
+      def ReplTypeCompletor.handle_exception(e)
         raise e
       end
-      ReplCompletion::Types.load_rbs_builder unless ReplCompletion::Types.rbs_builder
+      ReplTypeCompletor::Types.load_rbs_builder unless ReplTypeCompletor::Types.rbs_builder
     end
     
     def teardown
-      ReplCompletion.singleton_class.remove_method(:handle_exception)
-      ReplCompletion.define_singleton_method(:handle_exception, &@handle_exception_method)
+      ReplTypeCompletor.singleton_class.remove_method(:handle_exception)
+      ReplTypeCompletor.define_singleton_method(:handle_exception, &@handle_exception_method)
     end
 
     def empty_binding
@@ -24,7 +24,7 @@ module TestReplCompletion
     end
 
     def analyze(code, binding: nil)
-      ReplCompletion.send(:analyze_code, code, binding || empty_binding)
+      ReplTypeCompletor.send(:analyze_code, code, binding || empty_binding)
     end
 
     def assert_analyze_type(code, type, token = nil, binding: empty_binding)
@@ -439,24 +439,24 @@ module TestReplCompletion
       assert_call('class A; X=1; class B; X=""; X.', include: String, exclude: Integer)
       assert_call('class A; X=1; class B; X=""; end; X.', include: Integer, exclude: String)
       assert_call('class A; class B; X=1; end; end; class A; class B; X.', include: Integer)
-      assert_call('module ReplCompletion; VERSION.', include: String)
-      assert_call('module ReplCompletion; ReplCompletion::VERSION.', include: String)
-      assert_call('module ReplCompletion; VERSION=1; VERSION.', include: Integer)
-      assert_call('module ReplCompletion; VERSION=1; ReplCompletion::VERSION.', include: Integer)
-      assert_call('module ReplCompletion; module A; VERSION.', include: String)
-      assert_call('module ReplCompletion; module A; VERSION=1; VERSION.', include: Integer)
-      assert_call('module ReplCompletion; module A; VERSION=1; ReplCompletion::VERSION.', include: String)
-      assert_call('module ReplCompletion; module A; VERSION=1; end; VERSION.', include: String)
-      assert_call('module ReplCompletion; ReplCompletion=1; ReplCompletion.', include: Integer)
-      assert_call('module ReplCompletion; ReplCompletion=1; ::ReplCompletion::VERSION.', include: String)
-      module_binding = eval 'module ::ReplCompletion; binding; end'
+      assert_call('module ReplTypeCompletor; VERSION.', include: String)
+      assert_call('module ReplTypeCompletor; ReplTypeCompletor::VERSION.', include: String)
+      assert_call('module ReplTypeCompletor; VERSION=1; VERSION.', include: Integer)
+      assert_call('module ReplTypeCompletor; VERSION=1; ReplTypeCompletor::VERSION.', include: Integer)
+      assert_call('module ReplTypeCompletor; module A; VERSION.', include: String)
+      assert_call('module ReplTypeCompletor; module A; VERSION=1; VERSION.', include: Integer)
+      assert_call('module ReplTypeCompletor; module A; VERSION=1; ReplTypeCompletor::VERSION.', include: String)
+      assert_call('module ReplTypeCompletor; module A; VERSION=1; end; VERSION.', include: String)
+      assert_call('module ReplTypeCompletor; ReplTypeCompletor=1; ReplTypeCompletor.', include: Integer)
+      assert_call('module ReplTypeCompletor; ReplTypeCompletor=1; ::ReplTypeCompletor::VERSION.', include: String)
+      module_binding = eval 'module ::ReplTypeCompletor; binding; end'
       assert_call('VERSION.', include: NilClass)
       assert_call('VERSION.', include: String, binding: module_binding)
-      assert_call('ReplCompletion::VERSION.', include: String, binding: module_binding)
+      assert_call('ReplTypeCompletor::VERSION.', include: String, binding: module_binding)
       assert_call('A = 1; module M; A += 0.5; A.', include: Float)
       assert_call('::A = 1; module M; A += 0.5; A.', include: Float)
       assert_call('::A = 1; module M; A += 0.5; ::A.', include: Integer)
-      assert_call('ReplCompletion::A = 1; ReplCompletion::A += 0.5; ReplCompletion::A.', include: Float)
+      assert_call('ReplTypeCompletor::A = 1; ReplTypeCompletor::A += 0.5; ReplTypeCompletor::A.', include: Float)
     end
 
     def test_literal

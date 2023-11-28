@@ -2,7 +2,7 @@
 # frozen_string_literal: true
 
 require "bundler/setup"
-require "repl_completion"
+require "repl_type_completor"
 
 # You can add fixtures and/or initialization code here to make experimenting
 # with your gem easier. You can also use a different console, if you like.
@@ -11,6 +11,6 @@ require "repl_completion"
 # require "pry"
 # Pry.start
 
-ReplCompletion.preload_rbs
+ReplTypeCompletor.preload_rbs
 require "irb"
 IRB.start(__FILE__)

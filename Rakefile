@@ -6,15 +6,15 @@ require "rake/testtask"
 Rake::TestTask.new(:test) do |t|
   t.libs << "test"
   t.libs << "lib"
-  t.test_files = FileList["test/repl_completion/test_*.rb"]
+  t.test_files = FileList["test/repl_type_completor/test_*.rb"]
 end
 
 # To make sure they have been correctly setup for Ruby CI.
-desc "Run each repl_completion test file in isolation."
+desc "Run each repl_type_completor test file in isolation."
 task :test_in_isolation do
   failed = false
 
-  FileList["test/repl_completion/test_*.rb"].each do |test_file|
+  FileList["test/repl_type_completor/test_*.rb"].each do |test_file|
     ENV["TEST"] = test_file
     begin
       Rake::Task["test"].execute

@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-require 'repl_completion'
+require 'repl_type_completor'
 require_relative './helper'
 
-module TestReplCompletion
-  class ReplCompletionTest < TestCase
+module TestReplTypeCompletor
+  class ReplTypeCompletorTest < TestCase
     def setup
-      ReplCompletion.load_rbs unless ReplCompletion.rbs_loaded?
+      ReplTypeCompletor.load_rbs unless ReplTypeCompletor.rbs_loaded?
     end
 
     def empty_binding
@@ -17,23 +17,23 @@ module TestReplCompletion
 
     def assert_completion(code, binding: empty_binding, filename: nil, include: nil, exclude: nil)
       raise ArgumentError if include.nil? && exclude.nil?
-      candidates = ReplCompletion.analyze(code, binding: binding, filename: filename).completion_candidates
+      candidates = ReplTypeCompletor.analyze(code, binding: binding, filename: filename).completion_candidates
       assert ([*include] - candidates).empty?, "Expected #{candidates} to include #{include}" if include
       assert (candidates & [*exclude]).empty?, "Expected #{candidates} not to include #{exclude}" if exclude
     end
 
     def assert_doc_namespace(code, namespace, binding: empty_binding)
-      assert_equal namespace, ReplCompletion.analyze(code, binding: binding).doc_namespace('')
+      assert_equal namespace, ReplTypeCompletor.analyze(code, binding: binding).doc_namespace('')
     end
 
     def test_require
       assert_completion("require '", include: 'set')
       assert_completion("require 's", include: 'et')
-      assert_completion("require_relative 'test_", filename: __FILE__, include: 'repl_completion')
-      assert_completion("require_relative '../repl_", filename: __FILE__, include: 'completion/test_repl_completion')
+      assert_completion("require_relative 'test_", filename: __FILE__, include: 'repl_type_completor')
+      assert_completion("require_relative '../repl_", filename: __FILE__, include: 'type_completor/test_repl_type_completor')
       Dir.chdir File.join(__dir__, '..') do
-        assert_completion("require_relative 'repl_", filename: nil, include: 'completion/test_repl_completion')
-        assert_completion("require_relative 'repl_", filename: '(irb)', include: 'completion/test_repl_completion')
+        assert_completion("require_relative 'repl_", filename: nil, include: 'type_completor/test_repl_type_completor')
+        assert_completion("require_relative 'repl_", filename: '(irb)', include: 'type_completor/test_repl_type_completor')
       end
 
       # Incomplete double quote string is InterpolatedStringNode
@@ -60,7 +60,7 @@ module TestReplCompletion
       assert_completion('ran', include: 'd')
       assert_doc_namespace('1.abs', 'Integer#abs')
       assert_doc_namespace('Integer.sqrt', 'Integer.sqrt')
-      assert_doc_namespace('rand', 'TestReplCompletion::ReplCompletionTest#rand')
+      assert_doc_namespace('rand', 'TestReplTypeCompletor::ReplTypeCompletorTest#rand')
       assert_doc_namespace('Object::rand', 'Object.rand')
     end
 
@@ -79,7 +79,7 @@ module TestReplCompletion
     def test_const
       assert_completion('Ar', include: 'ray')
       assert_completion('::Ar', include: 'ray')
-      assert_completion('ReplCompletion::V', include: 'ERSION')
+      assert_completion('ReplTypeCompletor::V', include: 'ERSION')
       assert_completion('FooBar=1; F', include: 'ooBar')
       assert_completion('::FooBar=1; ::F', include: 'ooBar')
       assert_doc_namespace('Array', 'Array')
@@ -87,7 +87,7 @@ module TestReplCompletion
       assert_doc_namespace('Object::Array', 'Array')
       assert_completion('::', include: 'Array')
       assert_completion('class ::', include: 'Array')
-      assert_completion('module ReplCompletion; class T', include: ['ypes', 'racePoint'])
+      assert_completion('module ReplTypeCompletor; class T', include: ['ypes', 'racePoint'])
     end
 
     def test_gvar
@@ -161,22 +161,22 @@ module TestReplCompletion
     end
 
     def test_sig_dir
-      assert_doc_namespace('ReplCompletion.analyze(code, binding: binding).completion_candidates.__id__', 'Array#__id__')
-      assert_doc_namespace('ReplCompletion.analyze(code, binding: binding).doc_namespace.__id__', 'String#__id__')
+      assert_doc_namespace('ReplTypeCompletor.analyze(code, binding: binding).completion_candidates.__id__', 'Array#__id__')
+      assert_doc_namespace('ReplTypeCompletor.analyze(code, binding: binding).doc_namespace.__id__', 'String#__id__')
     end
 
     def test_none
-      result = ReplCompletion.analyze('()', binding: binding)
+      result = ReplTypeCompletor.analyze('()', binding: binding)
       assert_nil result
     end
 
-    def test_repl_completion_api
-      assert_nil ReplCompletion.rbs_load_error
-      assert_nil ReplCompletion.last_completion_error
-      assert_equal true, ReplCompletion.rbs_load_started?
-      assert_equal true, ReplCompletion.rbs_loaded?
-      assert_nothing_raised { ReplCompletion.preload_rbs }
-      assert_nothing_raised { ReplCompletion.load_rbs }
+    def test_repl_type_completor_api
+      assert_nil ReplTypeCompletor.rbs_load_error
+      assert_nil ReplTypeCompletor.last_completion_error
+      assert_equal true, ReplTypeCompletor.rbs_load_started?
+      assert_equal true, ReplTypeCompletor.rbs_loaded?
+      assert_nothing_raised { ReplTypeCompletor.preload_rbs }
+      assert_nothing_raised { ReplTypeCompletor.load_rbs }
     end
 
     def with_failing_method(klass, method_name, message)
@@ -192,36 +192,36 @@ module TestReplCompletion
     end
 
     def test_analyze_error
-      with_failing_method(ReplCompletion.singleton_class, :analyze_code, 'error_in_analyze_code') do
-        assert_nil ReplCompletion.analyze('1.', binding: binding)
+      with_failing_method(ReplTypeCompletor.singleton_class, :analyze_code, 'error_in_analyze_code') do
+        assert_nil ReplTypeCompletor.analyze('1.', binding: binding)
       end
-      assert_equal 'error_in_analyze_code', ReplCompletion.last_completion_error&.message
+      assert_equal 'error_in_analyze_code', ReplTypeCompletor.last_completion_error&.message
     ensure
-      ReplCompletion.instance_variable_set(:@last_completion_error, nil)
+      ReplTypeCompletor.instance_variable_set(:@last_completion_error, nil)
     end
 
     def test_completion_candidates_error
-      result = ReplCompletion.analyze '1.', binding: binding
-      with_failing_method(ReplCompletion::Types::InstanceType, :methods, 'error_in_methods') do
+      result = ReplTypeCompletor.analyze '1.', binding: binding
+      with_failing_method(ReplTypeCompletor::Types::InstanceType, :methods, 'error_in_methods') do
         assert_equal [], result.completion_candidates
       end
-      assert_equal 'error_in_methods', ReplCompletion.last_completion_error&.message
+      assert_equal 'error_in_methods', ReplTypeCompletor.last_completion_error&.message
     ensure
-      ReplCompletion.instance_variable_set(:@last_completion_error, nil)
+      ReplTypeCompletor.instance_variable_set(:@last_completion_error, nil)
     end
 
     def test_doc_namespace_error
-      result = ReplCompletion.analyze '1.', binding: binding
-      with_failing_method(ReplCompletion::Result, :method_doc, 'error_in_method_doc') do
+      result = ReplTypeCompletor.analyze '1.', binding: binding
+      with_failing_method(ReplTypeCompletor::Result, :method_doc, 'error_in_method_doc') do
         assert_nil result.doc_namespace('abs')
       end
-      assert_equal 'error_in_method_doc', ReplCompletion.last_completion_error&.message
+      assert_equal 'error_in_method_doc', ReplTypeCompletor.last_completion_error&.message
     ensure
-      ReplCompletion.instance_variable_set(:@last_completion_error, nil)
+      ReplTypeCompletor.instance_variable_set(:@last_completion_error, nil)
     end
 
     def test_info
-      assert_equal "ReplCompletion: #{ReplCompletion::VERSION}, Prism: #{Prism::VERSION}, RBS: #{RBS::VERSION}", ReplCompletion.info
+      assert_equal "ReplTypeCompletor: #{ReplTypeCompletor::VERSION}, Prism: #{Prism::VERSION}, RBS: #{RBS::VERSION}", ReplTypeCompletor.info
     end
   end
 end

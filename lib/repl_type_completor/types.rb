@@ -2,7 +2,7 @@
 
 require_relative 'methods'
 
-module ReplCompletion
+module ReplTypeCompletor
   module Types
     OBJECT_TO_TYPE_SAMPLE_SIZE = 50
 

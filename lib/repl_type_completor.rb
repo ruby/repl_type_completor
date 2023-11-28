@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-require_relative 'repl_completion/version'
-require_relative 'repl_completion/type_analyzer'
-require_relative 'repl_completion/result'
+require_relative 'repl_type_completor/version'
+require_relative 'repl_type_completor/type_analyzer'
+require_relative 'repl_type_completor/result'
 
-module ReplCompletion
+module ReplTypeCompletor
   class << self
     attr_reader :last_completion_error
 
@@ -54,7 +54,7 @@ module ReplCompletion
       elsif !rbs_loaded?
         rbs_info << ' signatures loading'
       end
-      "ReplCompletion: #{VERSION}, #{prism_info}, #{rbs_info}"
+      "ReplTypeCompletor: #{VERSION}, #{prism_info}, #{rbs_info}"
     end
 
     private

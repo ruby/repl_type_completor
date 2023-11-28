@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module ReplCompletion
+module ReplTypeCompletor
   module Methods
     OBJECT_SINGLETON_CLASS_METHOD = Object.instance_method(:singleton_class)
     OBJECT_INSTANCE_VARIABLES_METHOD = Object.instance_method(:instance_variables)

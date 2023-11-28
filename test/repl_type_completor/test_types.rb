@@ -1,27 +1,27 @@
 # frozen_string_literal: true
 
-require 'repl_completion'
+require 'repl_type_completor'
 require_relative './helper'
 
-module TestReplCompletion
+module TestReplTypeCompletor
   class TypesTest < TestCase
     def test_type_inspect
-      true_type = ReplCompletion::Types::TRUE
-      false_type = ReplCompletion::Types::FALSE
-      nil_type = ReplCompletion::Types::NIL
-      string_type = ReplCompletion::Types::STRING
-      true_or_false = ReplCompletion::Types::UnionType[true_type, false_type]
-      array_type = ReplCompletion::Types::InstanceType.new Array, { Elem: true_or_false }
+      true_type = ReplTypeCompletor::Types::TRUE
+      false_type = ReplTypeCompletor::Types::FALSE
+      nil_type = ReplTypeCompletor::Types::NIL
+      string_type = ReplTypeCompletor::Types::STRING
+      true_or_false = ReplTypeCompletor::Types::UnionType[true_type, false_type]
+      array_type = ReplTypeCompletor::Types::InstanceType.new Array, { Elem: true_or_false }
       assert_equal 'nil', nil_type.inspect
       assert_equal 'true', true_type.inspect
       assert_equal 'false', false_type.inspect
       assert_equal 'String', string_type.inspect
-      assert_equal 'Array', ReplCompletion::Types::InstanceType.new(Array).inspect
+      assert_equal 'Array', ReplTypeCompletor::Types::InstanceType.new(Array).inspect
       assert_equal 'true | false', true_or_false.inspect
       assert_equal 'Array[Elem: true | false]', array_type.inspect
       assert_equal 'Array', array_type.inspect_without_params
-      assert_equal 'Proc', ReplCompletion::Types::PROC.inspect
-      assert_equal 'Array.itself', ReplCompletion::Types::SingletonType.new(Array).inspect
+      assert_equal 'Proc', ReplTypeCompletor::Types::PROC.inspect
+      assert_equal 'Array.itself', ReplTypeCompletor::Types::SingletonType.new(Array).inspect
     end
 
     def test_type_from_object
@@ -30,14 +30,14 @@ module TestReplCompletion
       def bo.hash; 42; end # Needed to use this object as a hash key
       arr = [1, 'a']
       hash = { 'key' => :value }
-      int_type = ReplCompletion::Types.type_from_object 1
-      obj_type = ReplCompletion::Types.type_from_object obj
-      arr_type = ReplCompletion::Types.type_from_object arr
-      hash_type = ReplCompletion::Types.type_from_object hash
-      bo_type = ReplCompletion::Types.type_from_object bo
-      bo_arr_type = ReplCompletion::Types.type_from_object [bo]
-      bo_key_hash_type = ReplCompletion::Types.type_from_object({ bo => 1 })
-      bo_value_hash_type = ReplCompletion::Types.type_from_object({ x: bo })
+      int_type = ReplTypeCompletor::Types.type_from_object 1
+      obj_type = ReplTypeCompletor::Types.type_from_object obj
+      arr_type = ReplTypeCompletor::Types.type_from_object arr
+      hash_type = ReplTypeCompletor::Types.type_from_object hash
+      bo_type = ReplTypeCompletor::Types.type_from_object bo
+      bo_arr_type = ReplTypeCompletor::Types.type_from_object [bo]
+      bo_key_hash_type = ReplTypeCompletor::Types.type_from_object({ bo => 1 })
+      bo_value_hash_type = ReplTypeCompletor::Types.type_from_object({ x: bo })
 
       assert_equal Integer, int_type.klass
       # Use singleton_class to autocomplete singleton methods
@@ -55,8 +55,8 @@ module TestReplCompletion
       assert_equal 'Object', obj_type.inspect
       assert_equal 'Array[Elem: Integer | String]', arr_type.inspect
       assert_equal 'Hash[K: String, V: Symbol]', hash_type.inspect
-      assert_equal 'Array.itself', ReplCompletion::Types.type_from_object(Array).inspect
-      assert_equal 'ReplCompletion.itself', ReplCompletion::Types.type_from_object(ReplCompletion).inspect
+      assert_equal 'Array.itself', ReplTypeCompletor::Types.type_from_object(Array).inspect
+      assert_equal 'ReplTypeCompletor.itself', ReplTypeCompletor::Types.type_from_object(ReplTypeCompletor).inspect
     end
 
     def test_type_methods
@@ -67,11 +67,11 @@ module TestReplCompletion
       end
       String.define_method(:foobarbaz) {}
       targets = [:foobar, :foobaz, :foobarbaz]
-      type = ReplCompletion::Types.type_from_object s
+      type = ReplTypeCompletor::Types.type_from_object s
       assert_equal [:foobar, :foobarbaz], targets & type.methods
       assert_equal [:foobar, :foobaz, :foobarbaz], targets & type.all_methods
-      assert_equal [:foobarbaz], targets & ReplCompletion::Types::STRING.methods
-      assert_equal [:foobarbaz], targets & ReplCompletion::Types::STRING.all_methods
+      assert_equal [:foobarbaz], targets & ReplTypeCompletor::Types::STRING.methods
+      assert_equal [:foobarbaz], targets & ReplTypeCompletor::Types::STRING.all_methods
     ensure
       String.remove_method :foobarbaz
     end
@@ -79,7 +79,7 @@ module TestReplCompletion
     def test_basic_object_methods
       bo = BasicObject.new
       def bo.foobar; end
-      type = ReplCompletion::Types.type_from_object bo
+      type = ReplTypeCompletor::Types.type_from_object bo
       assert type.all_methods.include?(:foobar)
     end
   end

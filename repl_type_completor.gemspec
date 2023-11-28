@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-require_relative "lib/repl_completion/version"
+require_relative "lib/repl_type_completor/version"
 
 Gem::Specification.new do |spec|
-  spec.name = "repl_completion"
-  spec.version = ReplCompletion::VERSION
+  spec.name = "repl_type_completor"
+  spec.version = ReplTypeCompletor::VERSION
   spec.authors = ["tompng"]
   spec.email = ["tomoyapenguin@gmail.com"]
 
