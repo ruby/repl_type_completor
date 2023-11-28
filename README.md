@@ -31,9 +31,9 @@ ReplTypeCompletor.load_rbs # Could take a seconds in large projects
 Now you can get completion candidates.
 ```ruby
 array = [1, 2, 3]
-class String; def upupup; end; end
-result = ReplTypeCompletor.analyze('array.map do str = _1.chr; str.up', binding: binding)
-result.completion_candidates #=> ["case", "case!", "to", "upup"]
+code_to_complete = 'array.map do str = _1.chr; str.up'
+result = ReplTypeCompletor.analyze(code_to_complete, binding: binding, filename: __FILE__)
+result.completion_candidates #=> ["case", "case!", "to"]
 result.doc_namespace('case') #=> "String#upcase"
 ```
 
@@ -45,7 +45,7 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/repl_type_completor.
+Bug reports and pull requests are welcome on GitHub at https://github.com/ruby/repl_type_completor.
 
 When something is wrong, these methods will provide some debug information.
 ```ruby
@@ -54,7 +54,7 @@ ReplTypeCompletor.rbs_load_started?
 ReplTypeCompletor.rbs_loaded?
 ReplTypeCompletor.rbs_load_error
 ReplTypeCompletor.last_completion_error
-ReplTypeCompletor.analyze(code_to_complete, binding: binding)
+ReplTypeCompletor.analyze(code_to_complete, binding: binding, filename: __FILE__)
 ```
 
 ## License
