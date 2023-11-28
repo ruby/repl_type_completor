@@ -26,9 +26,10 @@ module ReplCompletion
       yield
     ]
 
-    def initialize(analyze_result, binding)
+    def initialize(analyze_result, binding, source_file)
       @analyze_result = analyze_result
       @binding = binding
+      @source_file = source_file
     end
 
     def completion_candidates
@@ -37,7 +38,7 @@ module ReplCompletion
       in [:require, name]
         RequirePaths.require_completions(name)
       in [:require_relative, name]
-        RequirePaths.require_relative_completions(name, @binding)
+        RequirePaths.require_relative_completions(name, @source_file)
       in [:call_or_const, name, type, self_call]
         ((self_call ? type.all_methods : type.methods).map(&:to_s) - HIDDEN_METHODS) | type.constants
       in [:const, name, type, scope]

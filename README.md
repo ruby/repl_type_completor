@@ -32,7 +32,7 @@ Now you can get completion candidates.
 ```ruby
 array = [1, 2, 3]
 class String; def upupup; end; end
-result = ReplCompletion.analyze('array.map do str = _1.chr; str.up', binding)
+result = ReplCompletion.analyze('array.map do str = _1.chr; str.up', binding: binding)
 result.completion_candidates #=> ["case", "case!", "to", "upup"]
 result.doc_namespace('case') #=> "String#upcase"
 ```
@@ -54,7 +54,7 @@ ReplCompletion.rbs_load_started?
 ReplCompletion.rbs_loaded?
 ReplCompletion.rbs_load_error
 ReplCompletion.last_completion_error
-ReplCompletion.analyze(code_to_complete, binding)
+ReplCompletion.analyze(code_to_complete, binding: binding)
 ```
 
 ## License

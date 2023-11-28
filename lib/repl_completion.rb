@@ -28,10 +28,10 @@ module ReplCompletion
       Types.preload_rbs_builder
     end
 
-    def analyze(code, binding)
+    def analyze(code, binding:, filename: nil)
       verbose, $VERBOSE = $VERBOSE, nil
       result = analyze_code(code, binding)
-      Result.new(result, binding) if result
+      Result.new(result, binding, filename) if result
     rescue Exception => e
       handle_exception(e)
       nil

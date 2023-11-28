@@ -15,21 +15,27 @@ module TestReplCompletion
 
     TARGET_REGEXP = /(@@|@|\$)?[a-zA-Z_]*[!?=]?$/
 
-    def assert_completion(code, binding: empty_binding, include: nil, exclude: nil)
+    def assert_completion(code, binding: empty_binding, filename: nil, include: nil, exclude: nil)
       raise ArgumentError if include.nil? && exclude.nil?
-      candidates = ReplCompletion.analyze(code, binding).completion_candidates
+      candidates = ReplCompletion.analyze(code, binding: binding, filename: filename).completion_candidates
       assert ([*include] - candidates).empty?, "Expected #{candidates} to include #{include}" if include
       assert (candidates & [*exclude]).empty?, "Expected #{candidates} not to include #{exclude}" if exclude
     end
 
     def assert_doc_namespace(code, namespace, binding: empty_binding)
-      assert_equal namespace, ReplCompletion.analyze(code, binding).doc_namespace('')
+      assert_equal namespace, ReplCompletion.analyze(code, binding: binding).doc_namespace('')
     end
 
     def test_require
       assert_completion("require '", include: 'set')
       assert_completion("require 's", include: 'et')
-      assert_completion("require_relative 'test_", include: 'repl_completion')
+      assert_completion("require_relative 'test_", filename: __FILE__, include: 'repl_completion')
+      assert_completion("require_relative '../repl_", filename: __FILE__, include: 'completion/test_repl_completion')
+      Dir.chdir File.join(__dir__, '..') do
+        assert_completion("require_relative 'repl_", filename: nil, include: 'completion/test_repl_completion')
+        assert_completion("require_relative 'repl_", filename: '(irb)', include: 'completion/test_repl_completion')
+      end
+
       # Incomplete double quote string is InterpolatedStringNode
       assert_completion('require "', include: 'set')
       assert_completion('require "s', include: 'et')
@@ -155,12 +161,12 @@ module TestReplCompletion
     end
 
     def test_sig_dir
-      assert_doc_namespace('ReplCompletion.analyze(code, binding).completion_candidates.__id__', 'Array#__id__')
-      assert_doc_namespace('ReplCompletion.analyze(code, binding).doc_namespace.__id__', 'String#__id__')
+      assert_doc_namespace('ReplCompletion.analyze(code, binding: binding).completion_candidates.__id__', 'Array#__id__')
+      assert_doc_namespace('ReplCompletion.analyze(code, binding: binding).doc_namespace.__id__', 'String#__id__')
     end
 
     def test_none
-      result = ReplCompletion.analyze('()', binding)
+      result = ReplCompletion.analyze('()', binding: binding)
       assert_nil result
     end
 
@@ -187,7 +193,7 @@ module TestReplCompletion
 
     def test_analyze_error
       with_failing_method(ReplCompletion.singleton_class, :analyze_code, 'error_in_analyze_code') do
-        assert_nil ReplCompletion.analyze '1.', binding
+        assert_nil ReplCompletion.analyze('1.', binding: binding)
       end
       assert_equal 'error_in_analyze_code', ReplCompletion.last_completion_error&.message
     ensure
@@ -195,7 +201,7 @@ module TestReplCompletion
     end
 
     def test_completion_candidates_error
-      result = ReplCompletion.analyze '1.', binding
+      result = ReplCompletion.analyze '1.', binding: binding
       with_failing_method(ReplCompletion::Types::InstanceType, :methods, 'error_in_methods') do
         assert_equal [], result.completion_candidates
       end
@@ -205,7 +211,7 @@ module TestReplCompletion
     end
 
     def test_doc_namespace_error
-      result = ReplCompletion.analyze '1.', binding
+      result = ReplCompletion.analyze '1.', binding: binding
       with_failing_method(ReplCompletion::Result, :method_doc, 'error_in_method_doc') do
         assert_nil result.doc_namespace('abs')
       end

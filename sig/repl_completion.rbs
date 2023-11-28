@@ -6,7 +6,7 @@ module ReplCompletion
     def doc_namespace: (String) -> String?
   end
 
-  def self.analyze: (String, Binding) -> Result?
+  def self.analyze: (String, binding: Binding, ?filename: String?) -> Result?
 
   def self.rbs_load_error: () -> Exception?
   def self.last_completion_error: () -> Exception?

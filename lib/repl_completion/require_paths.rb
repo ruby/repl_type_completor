@@ -19,11 +19,11 @@ module ReplCompletion
         end
       end
 
-      def require_relative_completions(target_path, binding)
-        current_filepath = binding.source_location[0]
+      def require_relative_completions(target_path, source_file)
+        source_dir = source_file ? File.dirname(source_file) : Dir.pwd
         *dir, target = target_path.split('/', -1)
         target ||= ''
-        base_dir = File.absolute_path(File.join(File.dirname(current_filepath), *dir))
+        base_dir = File.absolute_path(File.join(source_dir, *dir))
         paths = with_cache [:requireable_paths, base_dir] do
           requireable_paths(base_dir)
         end
