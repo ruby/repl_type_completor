@@ -61,8 +61,7 @@ module ReplCompletion
 
     def analyze_code(code, binding = Object::TOPLEVEL_BINDING)
       ast = Prism.parse(code, scopes: [binding.local_variables]).value
-      name = code[/(@@|@|\$)?\w*[!?=]?\z/]
-      *parents, target_node = find_target ast, code.bytesize - name.bytesize
+      *parents, target_node = find_target ast, code.bytesize
       return unless target_node
 
       calculate_scope = -> { TypeAnalyzer.calculate_target_type_scope(binding, parents, target_node).last }
@@ -74,13 +73,15 @@ module ReplCompletion
         return unless call_node.is_a?(Prism::CallNode) && call_node.receiver.nil?
         return unless args_node.is_a?(Prism::ArgumentsNode) && args_node.arguments.size == 1
 
+        content = code.byteslice(target_node.opening_loc.end_offset..)
         case call_node.name
         when :require
-          [:require, name]
+          [:require, content]
         when :require_relative
-          [:require_relative, name]
+          [:require_relative, content]
         end
       when Prism::SymbolNode
+        name = target_node.value.to_s
         if parents.last.is_a? Prism::BlockArgumentNode # method(&:target)
           receiver_type, _scope = calculate_type_scope.call target_node
           [:call, name, receiver_type, false]
@@ -88,6 +89,7 @@ module ReplCompletion
           [:symbol, name] unless name.empty?
         end
       when Prism::CallNode
+        name = target_node.message.to_s
         return [:lvar_or_method, name, calculate_scope.call] if target_node.receiver.nil?
 
         self_call = target_node.receiver.is_a? Prism::SelfNode
@@ -96,8 +98,9 @@ module ReplCompletion
         receiver_type = receiver_type.nonnillable if op == '&.'
         [op == '::' ? :call_or_const : :call, name, receiver_type, self_call]
       when Prism::LocalVariableReadNode, Prism::LocalVariableTargetNode
-        [:lvar_or_method, name, calculate_scope.call]
+        [:lvar_or_method, target_node.name.to_s, calculate_scope.call]
       when Prism::ConstantReadNode, Prism::ConstantTargetNode
+        name = target_node.name.to_s
         if parents.last.is_a? Prism::ConstantPathNode
           path_node = parents.last
           if path_node.parent # A::B
@@ -111,37 +114,33 @@ module ReplCompletion
           [:const, name, nil, calculate_scope.call]
         end
       when Prism::GlobalVariableReadNode, Prism::GlobalVariableTargetNode
-        [:gvar, name, calculate_scope.call]
+        [:gvar, target_node.name.to_s, calculate_scope.call]
       when Prism::InstanceVariableReadNode, Prism::InstanceVariableTargetNode
-        [:ivar, name, calculate_scope.call]
+        [:ivar, target_node.name.to_s, calculate_scope.call]
       when Prism::ClassVariableReadNode, Prism::ClassVariableTargetNode
-        [:cvar, name, calculate_scope.call]
+        [:cvar, target_node.name.to_s, calculate_scope.call]
       end
     end
 
     def find_target(node, position)
-      location = (
-        case node
-        when Prism::CallNode
-          node.message_loc
-        when Prism::SymbolNode
-          node.value_loc
-        when Prism::StringNode
-          node.content_loc
-        when Prism::InterpolatedStringNode
-          node.closing_loc if node.parts.empty?
-        end
-      )
-      return [node] if location&.start_offset == position
+      case node
+      when Prism::StringNode
+        # Unclosed quoted string has empty content and empty closing
+        return [node] if node.opening && node.closing&.empty?
+      when Prism::InterpolatedStringNode
+        # Unclosed double quoted string is InterpolatedStringNode with empty parts
+        return [node] if node.parts.empty? && node.opening && node.closing&.empty?
+      end
 
       node.compact_child_nodes.each do |n|
         match = find_target(n, position)
         next unless match
+
         match.unshift node
         return match
       end
 
-      [node] if node.location.start_offset == position
+      [node] if node.location.end_offset == position
     end
   end
 end
