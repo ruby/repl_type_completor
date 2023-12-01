@@ -4,7 +4,13 @@ require_relative 'require_paths'
 
 module ReplTypeCompletor
   class Result
-    HIDDEN_METHODS = %w[Namespace TypeName] # defined by rbs, should be hidden
+    OPERATOR_METHODS = %w[! != !~ % & * ** + +@ - -@ / < << <= <=> == === =~ > >= >> [] []= ^ ` | ~]
+    HIDDEN_METHODS = [
+      # defined by RBS, should be hidden
+      'Namespace', 'TypeName',
+      # operator methods does not need to be completed
+      *OPERATOR_METHODS
+    ]
     RESERVED_WORDS = %w[
       __ENCODING__ __LINE__ __FILE__
       BEGIN END
