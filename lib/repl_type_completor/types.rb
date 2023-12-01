@@ -162,7 +162,7 @@ module ReplTypeCompletor
       end
       def transform() = yield(self)
       def methods() = @module_or_class.methods
-      def all_methods() = methods | Kernel.methods
+      def all_methods() = methods | @module_or_class.private_methods
       def constants() = @module_or_class.constants
       def types() = [self]
       def nillable?() = false
