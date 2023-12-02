@@ -29,6 +29,8 @@ module TestReplTypeCompletor
     def test_require
       assert_completion("require '", include: 'set')
       assert_completion("require 's", include: 'et')
+      assert_completion('require "', include: 'set')
+      assert_completion('require "s', include: 'et')
       assert_completion("require_relative 'test_", filename: __FILE__, include: 'repl_type_completor')
       assert_completion("require_relative '../repl_", filename: __FILE__, include: 'type_completor/test_repl_type_completor')
       Dir.chdir File.join(__dir__, '..') do
@@ -36,9 +38,9 @@ module TestReplTypeCompletor
         assert_completion("require_relative 'repl_", filename: '(irb)', include: 'type_completor/test_repl_type_completor')
       end
 
-      # Incomplete double quote string is InterpolatedStringNode
-      assert_completion('require "', include: 'set')
-      assert_completion('require "s', include: 'et')
+      # Should not complete terminated string
+      assert_nil ReplTypeCompletor.analyze('require "s"', binding: empty_binding)
+      assert_nil ReplTypeCompletor.analyze('require ?s', binding: empty_binding)
     end
 
     def test_method_block_sym

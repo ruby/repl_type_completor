@@ -254,16 +254,15 @@ module ReplTypeCompletor
         elsif node.block.is_a? Prism::BlockNode
           call_block_proc = ->(block_args, block_self_type) do
             scope.conditional do |s|
-              numbered_parameters = node.block.locals.grep(/\A_[1-9]/).map(&:to_s)
               params_table = node.block.locals.to_h { [_1.to_s, Types::NIL] }
               table = { **params_table, Scope::BREAK_RESULT => nil, Scope::NEXT_RESULT => nil }
               block_scope = Scope.new s, table, self_type: block_self_type, trace_ivar: !block_self_type
               # TODO kwargs
-              if node.block.parameters&.parameters
-                # node.block.parameters is Prism::BlockParametersNode
+              case node.block.parameters
+              when Prism::NumberedParametersNode
+                assign_numbered_parameters node.block.parameters.maximum, block_scope, block_args, {}
+              when Prism::BlockParametersNode
                 assign_parameters node.block.parameters.parameters, block_scope, block_args, {}
-              elsif !numbered_parameters.empty?
-                assign_numbered_parameters numbered_parameters, block_scope, block_args, {}
               end
               result = node.block.body ? evaluate(node.block.body, block_scope) : Types::NIL
               block_scope.merge_jumps
@@ -946,16 +945,13 @@ module ReplTypeCompletor
       end
     end
 
-    def assign_numbered_parameters(numbered_parameters, scope, args, _kwargs)
-      return if numbered_parameters.empty?
-      max_num = numbered_parameters.map { _1[1].to_i }.max
-      if max_num == 1
+    def assign_numbered_parameters(maximum, scope, args, _kwargs)
+      if maximum == 1
         scope['_1'] = args.first || Types::NIL
       else
-        args = sized_splat(args.first, :to_ary, max_num) if args.size == 1
-        numbered_parameters.each do |name|
-          index = name[1].to_i - 1
-          scope[name] = args[index] || Types::NIL
+        args = sized_splat(args.first, :to_ary, maximum) if args.size == 1
+        maximum.times do |index|
+          scope["_#{index + 1}"] = args[index] || Types::NIL
         end
       end
     end
