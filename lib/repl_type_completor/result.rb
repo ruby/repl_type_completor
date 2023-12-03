@@ -67,8 +67,9 @@ module ReplTypeCompletor
         Symbol.all_symbols.map { _1.inspect[1..] }
       in [:call, name, type, self_call]
         (self_call ? type.all_methods : type.methods).map(&:to_s) - HIDDEN_METHODS
-      in [:lvar_or_method, name, scope]
-        scope.self_type.all_methods.map(&:to_s) | scope.local_variables | RESERVED_WORDS
+      in [:lvar_or_method, name, scope, kwarg_call]
+        kwargs = kwarg_call ? Types.method_kwargs_names(*kwarg_call).map { "#{_1}:" } : []
+        scope.self_type.all_methods.map(&:to_s) | scope.local_variables | kwargs | RESERVED_WORDS
       else
         []
       end
@@ -99,7 +100,7 @@ module ReplTypeCompletor
         value_doc scope[prefix + matched]
       in [:call, prefix, type, _self_call]
         method_doc type, prefix + matched
-      in [:lvar_or_method, prefix, scope]
+      in [:lvar_or_method, prefix, scope, kwarg_call]
         if scope.local_variables.include?(prefix + matched)
           value_doc scope[prefix + matched]
         else
