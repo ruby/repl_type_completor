@@ -5,6 +5,7 @@ source 'https://rubygems.org'
 # Specify your gem's dependencies in repl_type_completor.gemspec
 gemspec
 
+gem 'irb', '>= 1.10.0'
 gem 'rake', '~> 13.0'
 gem 'test-unit'
 gem 'test-unit-ruby-core'
