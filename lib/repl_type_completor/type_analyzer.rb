@@ -582,8 +582,8 @@ module ReplTypeCompletor
           case node.reference
           when Prism::LocalVariableTargetNode, Prism::InstanceVariableTargetNode, Prism::ClassVariableTargetNode, Prism::GlobalVariableTargetNode, Prism::ConstantTargetNode
             s[node.reference.name.to_s] = error_type
-          when Prism::CallNode
-            evaluate node.reference, s
+          when Prism::CallTargetNode, Prism::IndexTargetNode
+            evaluate_multi_write_receiver node.reference, s, nil
           end
         end
         node.statements ? evaluate(node.statements, s) : Types::NIL
@@ -1034,8 +1034,8 @@ module ReplTypeCompletor
       case node
       when Prism::MultiTargetNode
         evaluate_multi_write node, value, scope, evaluated_receivers
-      when Prism::CallNode
-        evaluated_receivers&.[](node.receiver) || evaluate(node.receiver, scope) if node.receiver
+      when Prism::CallTargetNode, Prism::IndexTargetNode
+        evaluated_receivers&.[](node.receiver) || evaluate_multi_write_receiver(node, scope, nil)
       when Prism::SplatNode
         evaluate_write node.expression, Types.array_of(value), scope, evaluated_receivers if node.expression
       when Prism::LocalVariableTargetNode, Prism::GlobalVariableTargetNode, Prism::InstanceVariableTargetNode, Prism::ClassVariableTargetNode, Prism::ConstantTargetNode
@@ -1043,7 +1043,6 @@ module ReplTypeCompletor
       when Prism::ConstantPathTargetNode
         receiver = evaluated_receivers&.[](node.parent) || evaluate(node.parent, scope) if node.parent
         const_path_write receiver, node.child.name.to_s, value, scope
-        value
       end
     end
 
@@ -1066,20 +1065,24 @@ module ReplTypeCompletor
       when Prism::MultiWriteNode, Prism::MultiTargetNode
         targets = [*node.lefts, *node.rest, *node.rights]
         targets.each { evaluate_multi_write_receiver _1, scope, evaluated_receivers }
-      when Prism::CallNode
-        if node.receiver
-          receiver = evaluate(node.receiver, scope)
-          evaluated_receivers[node.receiver] = receiver if evaluated_receivers
-        end
+      when Prism::CallTargetNode, Prism::CallNode
+        receiver = evaluate(node.receiver, scope)
+        evaluated_receivers[node.receiver] = receiver if evaluated_receivers
+        receiver
+      when Prism::IndexTargetNode
+        receiver = evaluate(node.receiver, scope)
+        evaluated_receivers[node.receiver] = receiver if evaluated_receivers
         if node.arguments
           node.arguments.arguments&.each do |arg|
             if arg.is_a? Prism::SplatNode
-              evaluate arg.expression, scope
+              evaluate arg.expression, scope if arg.expression
             else
               evaluate arg, scope
             end
           end
         end
+        evaluate node.block.expression, scope if node.block&.expression
+        receiver
       when Prism::SplatNode
         evaluate_multi_write_receiver node.expression, scope, evaluated_receivers if node.expression
       end

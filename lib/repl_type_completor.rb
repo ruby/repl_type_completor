@@ -91,8 +91,8 @@ module ReplTypeCompletor
         else
           [:symbol, name] unless name.empty?
         end
-      when Prism::CallNode
-        return if target_node.opening
+      when Prism::CallNode, Prism::CallTargetNode
+        return if target_node.is_a?(Prism::CallNode) && target_node.opening
 
         name = target_node.message.to_s
         return [:lvar_or_method, name, calculate_scope.call] if target_node.receiver.nil?
