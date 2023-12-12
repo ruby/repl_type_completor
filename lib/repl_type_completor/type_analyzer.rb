@@ -231,7 +231,6 @@ module ReplTypeCompletor
 
 
     def evaluate_call_node(node, scope)
-      is_field_assign = node.name.match?(/[^<>=!\]]=\z/) || (node.name == :[]= && !node.call_operator)
       receiver_type = node.receiver ? evaluate(node.receiver, scope) : scope.self_type
       evaluate_method = lambda do |scope|
         args_types, kwargs_types, block_sym_node, has_block = evaluate_call_node_arguments node, scope
@@ -280,7 +279,7 @@ module ReplTypeCompletor
           call_block_proc = ->(_block_args, _self_type) { Types::OBJECT }
         end
         result = method_call receiver_type, node.name, args_types, kwargs_types, call_block_proc, scope
-        if is_field_assign
+        if node.attribute_write?
           args_types.last || Types::NIL
         else
           result
