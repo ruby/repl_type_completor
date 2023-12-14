@@ -681,6 +681,7 @@ module TestReplTypeCompletor
 
     def test_block_args
       assert_call('[1,2,3].tap{|a| a.', include: Array)
+      assert_call('[1,2,3].tap{|a,| a.', include: Integer)
       assert_call('[1,2,3].tap{|a,b| a.', include: Integer)
       assert_call('[1,2,3].tap{|(a,b)| a.', include: Integer)
       assert_call('[1,2,3].tap{|a,*b| b.', include: Array)

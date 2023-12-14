@@ -923,8 +923,7 @@ module ReplTypeCompletor
       node.posts.zip posts do |n, v|
         assign_required_parameter n, v, scope
       end
-      if node.rest&.name
-        # node.rest is Prism::RestParameterNode
+      if node.rest.is_a?(Prism::RestParameterNode) && node.rest.name
         scope[node.rest.name.to_s] = Types.array_of(*rest)
       end
       node.keywords.each do |n|
