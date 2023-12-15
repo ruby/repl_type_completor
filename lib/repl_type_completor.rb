@@ -81,6 +81,8 @@ module ReplTypeCompletor
           [:require_relative, content]
         end
       when Prism::SymbolNode
+        return unless !target_node.closing || target_node.empty?
+
         name = target_node.value.to_s
         if parents.last.is_a? Prism::BlockArgumentNode # method(&:target)
           receiver_type, _scope = calculate_type_scope.call target_node
@@ -89,6 +91,8 @@ module ReplTypeCompletor
           [:symbol, name] unless name.empty?
         end
       when Prism::CallNode
+        return if target_node.opening
+
         name = target_node.message.to_s
         return [:lvar_or_method, name, calculate_scope.call] if target_node.receiver.nil?
 
