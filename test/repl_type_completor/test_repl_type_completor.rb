@@ -64,6 +64,13 @@ module TestReplTypeCompletor
       assert_doc_namespace('Object::rand', 'Object.rand')
     end
 
+    def test_closed_no_completion
+      # `:"bin"` should not complete `:"bin"ding`
+      assert_nil(ReplTypeCompletor.analyze(':"bin"', binding: binding))
+      # `ex()` should not complete `ex()it`
+      assert_nil(ReplTypeCompletor.analyze('ex()', binding: binding))
+    end
+
     def test_lvar
       bind = eval('lvar = 1; binding')
       assert_completion('lva', binding: bind, include: 'r')
