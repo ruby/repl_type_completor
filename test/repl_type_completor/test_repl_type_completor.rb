@@ -9,6 +9,13 @@ module TestReplTypeCompletor
       ReplTypeCompletor.load_rbs unless ReplTypeCompletor.rbs_loaded?
     end
 
+    def teardown
+      if ReplTypeCompletor.last_completion_error
+        raise ReplTypeCompletor.last_completion_error
+        ReplTypeCompletor.instance_variable_set(:@last_completion_error, nil)
+      end
+    end
+
     def empty_binding
       binding
     end
