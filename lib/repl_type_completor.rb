@@ -68,17 +68,15 @@ module ReplTypeCompletor
       calculate_type_scope = ->(node) { TypeAnalyzer.calculate_target_type_scope binding, [*parents, target_node], node }
 
       case target_node
-      when Prism::StringNode, Prism::InterpolatedStringNode
+      when Prism::StringNode
+        return unless target_node.closing&.empty?
+
         call_node, args_node = parents.last(2)
         return unless call_node.is_a?(Prism::CallNode) && call_node.receiver.nil?
         return unless args_node.is_a?(Prism::ArgumentsNode) && args_node.arguments.size == 1
 
-        content = code.byteslice(target_node.opening_loc.end_offset..)
-        case call_node.name
-        when :require
-          [:require, content]
-        when :require_relative
-          [:require_relative, content]
+        if call_node.name == :require || call_node.name == :require_relative
+          [call_node.name, target_node.content]
         end
       when Prism::SymbolNode
         return unless !target_node.closing || target_node.empty?
@@ -90,8 +88,8 @@ module ReplTypeCompletor
         else
           [:symbol, name] unless name.empty?
         end
-      when Prism::CallNode
-        return if target_node.opening
+      when Prism::CallNode, Prism::CallTargetNode
+        return if target_node.is_a?(Prism::CallNode) && target_node.opening
 
         name = target_node.message.to_s
         return [:lvar_or_method, name, calculate_scope.call] if target_node.receiver.nil?
@@ -127,14 +125,8 @@ module ReplTypeCompletor
     end
 
     def find_target(node, position)
-      case node
-      when Prism::StringNode
-        # Unclosed quoted string has empty content and empty closing
-        return [node] if node.opening && node.closing&.empty?
-      when Prism::InterpolatedStringNode
-        # Unclosed double quoted string is InterpolatedStringNode with empty parts
-        return [node] if node.parts.empty? && node.opening && node.closing&.empty?
-      end
+      # Skip because NumberedParametersNode#location gives location of whole block
+      return if node.is_a? Prism::NumberedParametersNode
 
       node.compact_child_nodes.each do |n|
         match = find_target(n, position)

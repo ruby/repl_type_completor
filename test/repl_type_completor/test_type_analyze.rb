@@ -333,8 +333,15 @@ module TestReplTypeCompletor
       assert_call('a, ((b=1).c, d) = 1; b.', include: Integer)
       assert_call('a, b[c=1] = 1; c.', include: Integer)
       assert_call('a, b[*(c=1)] = 1; c.', include: Integer)
+      assert_call('a, b[**(c=1)] = 1; c.', include: Integer)
+      assert_call('a, b[&(c=1)] = 1; c.', include: Integer)
+      assert_call('a, b[] = 1; a.', include: Integer)
+      assert_call('def f(*); a, b[*] = 1; a.', include: Integer)
+      assert_call('def f(&); a, b[&] = 1; a.', include: Integer)
+      assert_call('def f(**); a, b[**] = 1; a.', include: Integer)
       # incomplete massign
       assert_analyze_type('a,b', :lvar_or_method, 'b')
+      assert_call('(a=1).b, a.a', include: Integer)
       assert_call('(a=1).b, a.', include: Integer)
       assert_call('a=1; *a.', include: Integer)
     end
@@ -575,6 +582,7 @@ module TestReplTypeCompletor
       assert_call('for *,(*) in [1,2,3]; 1.', include: Integer)
       assert_call('for *i in [1,2,3]; i.sample.', include: Integer)
       assert_call('for (a=1).b in [1,2,3]; a.', include: Integer)
+      assert_call('for a[b=1] in [1,2,3]; b.', include: Integer)
       assert_call('for Array::B in [1,2,3]; Array::B.', include: Integer)
       assert_call('for A in [1,2,3]; A.', include: Integer)
       assert_call('for $a in [1,2,3]; $a.', include: Integer)
@@ -673,6 +681,7 @@ module TestReplTypeCompletor
 
     def test_block_args
       assert_call('[1,2,3].tap{|a| a.', include: Array)
+      assert_call('[1,2,3].tap{|a,| a.', include: Integer)
       assert_call('[1,2,3].tap{|a,b| a.', include: Integer)
       assert_call('[1,2,3].tap{|(a,b)| a.', include: Integer)
       assert_call('[1,2,3].tap{|a,*b| b.', include: Array)

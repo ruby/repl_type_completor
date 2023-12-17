@@ -231,7 +231,6 @@ module ReplTypeCompletor
 
 
     def evaluate_call_node(node, scope)
-      is_field_assign = node.name.match?(/[^<>=!\]]=\z/) || (node.name == :[]= && !node.call_operator)
       receiver_type = node.receiver ? evaluate(node.receiver, scope) : scope.self_type
       evaluate_method = lambda do |scope|
         args_types, kwargs_types, block_sym_node, has_block = evaluate_call_node_arguments node, scope
@@ -254,16 +253,15 @@ module ReplTypeCompletor
         elsif node.block.is_a? Prism::BlockNode
           call_block_proc = ->(block_args, block_self_type) do
             scope.conditional do |s|
-              numbered_parameters = node.block.locals.grep(/\A_[1-9]/).map(&:to_s)
               params_table = node.block.locals.to_h { [_1.to_s, Types::NIL] }
               table = { **params_table, Scope::BREAK_RESULT => nil, Scope::NEXT_RESULT => nil }
               block_scope = Scope.new s, table, self_type: block_self_type, trace_ivar: !block_self_type
               # TODO kwargs
-              if node.block.parameters&.parameters
-                # node.block.parameters is Prism::BlockParametersNode
+              case node.block.parameters
+              when Prism::NumberedParametersNode
+                assign_numbered_parameters node.block.parameters.maximum, block_scope, block_args, {}
+              when Prism::BlockParametersNode
                 assign_parameters node.block.parameters.parameters, block_scope, block_args, {}
-              elsif !numbered_parameters.empty?
-                assign_numbered_parameters numbered_parameters, block_scope, block_args, {}
               end
               result = node.block.body ? evaluate(node.block.body, block_scope) : Types::NIL
               block_scope.merge_jumps
@@ -281,7 +279,7 @@ module ReplTypeCompletor
           call_block_proc = ->(_block_args, _self_type) { Types::OBJECT }
         end
         result = method_call receiver_type, node.name, args_types, kwargs_types, call_block_proc, scope
-        if is_field_assign
+        if node.attribute_write?
           args_types.last || Types::NIL
         else
           result
@@ -583,8 +581,8 @@ module ReplTypeCompletor
           case node.reference
           when Prism::LocalVariableTargetNode, Prism::InstanceVariableTargetNode, Prism::ClassVariableTargetNode, Prism::GlobalVariableTargetNode, Prism::ConstantTargetNode
             s[node.reference.name.to_s] = error_type
-          when Prism::CallNode
-            evaluate node.reference, s
+          when Prism::CallTargetNode, Prism::IndexTargetNode
+            evaluate_multi_write_receiver node.reference, s, nil
           end
         end
         node.statements ? evaluate(node.statements, s) : Types::NIL
@@ -904,7 +902,6 @@ module ReplTypeCompletor
       args = sized_splat(args.first, :to_ary, size) if size >= 2 && args.size == 1
       reqs = args.shift node.requireds.size
       if node.rest
-        # node.rest is Prism::RestParameterNode
         posts = []
         opts = args.shift node.optionals.size
         rest = args
@@ -925,8 +922,8 @@ module ReplTypeCompletor
       node.posts.zip posts do |n, v|
         assign_required_parameter n, v, scope
       end
-      if node.rest&.name
-        # node.rest is Prism::RestParameterNode
+      # Prism::ImplicitRestNode (tap{|a,|}) does not have a name
+      if node.rest.is_a?(Prism::RestParameterNode) && node.rest.name
         scope[node.rest.name.to_s] = Types.array_of(*rest)
       end
       node.keywords.each do |n|
@@ -946,16 +943,13 @@ module ReplTypeCompletor
       end
     end
 
-    def assign_numbered_parameters(numbered_parameters, scope, args, _kwargs)
-      return if numbered_parameters.empty?
-      max_num = numbered_parameters.map { _1[1].to_i }.max
-      if max_num == 1
+    def assign_numbered_parameters(maximum, scope, args, _kwargs)
+      if maximum == 1
         scope['_1'] = args.first || Types::NIL
       else
-        args = sized_splat(args.first, :to_ary, max_num) if args.size == 1
-        numbered_parameters.each do |name|
-          index = name[1].to_i - 1
-          scope[name] = args[index] || Types::NIL
+        args = sized_splat(args.first, :to_ary, maximum) if args.size == 1
+        maximum.times do |index|
+          scope["_#{index + 1}"] = args[index] || Types::NIL
         end
       end
     end
@@ -1038,8 +1032,8 @@ module ReplTypeCompletor
       case node
       when Prism::MultiTargetNode
         evaluate_multi_write node, value, scope, evaluated_receivers
-      when Prism::CallNode
-        evaluated_receivers&.[](node.receiver) || evaluate(node.receiver, scope) if node.receiver
+      when Prism::CallTargetNode, Prism::IndexTargetNode
+        evaluated_receivers&.[](node.receiver) || evaluate_multi_write_receiver(node, scope, nil)
       when Prism::SplatNode
         evaluate_write node.expression, Types.array_of(value), scope, evaluated_receivers if node.expression
       when Prism::LocalVariableTargetNode, Prism::GlobalVariableTargetNode, Prism::InstanceVariableTargetNode, Prism::ClassVariableTargetNode, Prism::ConstantTargetNode
@@ -1047,7 +1041,6 @@ module ReplTypeCompletor
       when Prism::ConstantPathTargetNode
         receiver = evaluated_receivers&.[](node.parent) || evaluate(node.parent, scope) if node.parent
         const_path_write receiver, node.child.name.to_s, value, scope
-        value
       end
     end
 
@@ -1070,20 +1063,24 @@ module ReplTypeCompletor
       when Prism::MultiWriteNode, Prism::MultiTargetNode
         targets = [*node.lefts, *node.rest, *node.rights]
         targets.each { evaluate_multi_write_receiver _1, scope, evaluated_receivers }
-      when Prism::CallNode
-        if node.receiver
-          receiver = evaluate(node.receiver, scope)
-          evaluated_receivers[node.receiver] = receiver if evaluated_receivers
-        end
+      when Prism::CallTargetNode, Prism::CallNode
+        receiver = evaluate(node.receiver, scope)
+        evaluated_receivers[node.receiver] = receiver if evaluated_receivers
+        receiver
+      when Prism::IndexTargetNode
+        receiver = evaluate(node.receiver, scope)
+        evaluated_receivers[node.receiver] = receiver if evaluated_receivers
         if node.arguments
           node.arguments.arguments&.each do |arg|
             if arg.is_a? Prism::SplatNode
-              evaluate arg.expression, scope
+              evaluate arg.expression, scope if arg.expression
             else
               evaluate arg, scope
             end
           end
         end
+        evaluate node.block.expression, scope if node.block&.expression
+        receiver
       when Prism::SplatNode
         evaluate_multi_write_receiver node.expression, scope, evaluated_receivers if node.expression
       end
