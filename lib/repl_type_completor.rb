@@ -75,11 +75,8 @@ module ReplTypeCompletor
         return unless call_node.is_a?(Prism::CallNode) && call_node.receiver.nil?
         return unless args_node.is_a?(Prism::ArgumentsNode) && args_node.arguments.size == 1
 
-        case call_node.name
-        when :require
-          [:require, target_node.content]
-        when :require_relative
-          [:require_relative, target_node.content]
+        if call_node.name == :require || call_node.name == :require_relative
+          [call_node.name, target_node.content]
         end
       when Prism::SymbolNode
         return unless !target_node.closing || target_node.empty?
