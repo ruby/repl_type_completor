@@ -902,7 +902,6 @@ module ReplTypeCompletor
       args = sized_splat(args.first, :to_ary, size) if size >= 2 && args.size == 1
       reqs = args.shift node.requireds.size
       if node.rest
-        # node.rest is Prism::RestParameterNode
         posts = []
         opts = args.shift node.optionals.size
         rest = args
@@ -923,6 +922,7 @@ module ReplTypeCompletor
       node.posts.zip posts do |n, v|
         assign_required_parameter n, v, scope
       end
+      # Prism::ImplicitRestNode (tap{|a,|}) does not have a name
       if node.rest.is_a?(Prism::RestParameterNode) && node.rest.name
         scope[node.rest.name.to_s] = Types.array_of(*rest)
       end
