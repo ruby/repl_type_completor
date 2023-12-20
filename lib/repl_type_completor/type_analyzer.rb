@@ -9,13 +9,13 @@ module ReplTypeCompletor
   class TypeAnalyzer
     class DigTarget
       def initialize(parents, receiver, &block)
-        @dig_ids = parents.to_h { [_1.__id__, true] }
-        @target_id = receiver.__id__
+        @dig_nodes = parents.to_h { [_1, true] }.compare_by_identity
+        @target = receiver
         @block = block
       end
 
-      def dig?(node) = @dig_ids[node.__id__]
-      def target?(node) = @target_id == node.__id__
+      def dig?(node) = @dig_nodes[node]
+      def target?(node) = @target.equal?(node)
       def resolve(type, scope)
         @block.call type, scope
       end
