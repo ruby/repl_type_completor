@@ -79,7 +79,7 @@ module ReplTypeCompletor
           [call_node.name, target_node.content]
         end
       when Prism::SymbolNode
-        return unless !target_node.closing || target_node.empty?
+        return unless !target_node.closing || target_node.closing.empty?
 
         name = target_node.value.to_s
         if parents.last.is_a? Prism::BlockArgumentNode # method(&:target)
