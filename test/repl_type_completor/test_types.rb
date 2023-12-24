@@ -66,14 +66,28 @@ module TestReplTypeCompletor
         private def foobaz; end
       end
       String.define_method(:foobarbaz) {}
-      targets = [:foobar, :foobaz, :foobarbaz]
+      targets = [:foobar, :foobaz, :foobarbaz, :rand]
       type = ReplTypeCompletor::Types.type_from_object s
       assert_equal [:foobar, :foobarbaz], targets & type.methods
-      assert_equal [:foobar, :foobaz, :foobarbaz], targets & type.all_methods
+      assert_equal [:foobar, :foobaz, :foobarbaz, :rand], targets & type.all_methods
       assert_equal [:foobarbaz], targets & ReplTypeCompletor::Types::STRING.methods
-      assert_equal [:foobarbaz], targets & ReplTypeCompletor::Types::STRING.all_methods
+      assert_equal [:foobarbaz, :rand], targets & ReplTypeCompletor::Types::STRING.all_methods
     ensure
       String.remove_method :foobarbaz
+    end
+
+    def test_singleton_type_methods
+      m = Module.new do
+        class << self
+          def foobar; end
+          private def foobaz; end
+        end
+      end
+      type = ReplTypeCompletor::Types::SingletonType.new(m)
+      assert_include type.methods, :foobar
+      assert_not_include type.methods, :foobaz
+      assert_include type.all_methods, :foobaz
+      assert_include type.all_methods, :rand
     end
 
     def test_basic_object_methods
