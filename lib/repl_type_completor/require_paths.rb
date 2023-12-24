@@ -8,11 +8,14 @@ module ReplTypeCompletor
         target ||= ''
         paths = with_cache [:require_completions, dir] do
           gem_and_system_load_paths.flat_map do |load_path|
+            reject_prefixes = gem_and_system_load_paths.filter_map do |lp|
+              lp.delete_prefix(load_path).delete_prefix('/').delete_suffix('/') + '/' if lp.start_with? load_path
+            end.reject(&:empty?)
             base_dir = File.absolute_path(File.join(load_path, *dir))
             with_cache [:requireable_paths, base_dir] do
-              requireable_paths(base_dir)
+              requireable_paths(base_dir, reject_prefixes: reject_prefixes)
             end
-          end.sort
+          end.uniq.sort
         end
         paths.filter_map do |path|
           [*dir, path].join('/') if path.start_with?(target)
@@ -59,14 +62,16 @@ module ReplTypeCompletor
         end.sort
       end
 
-      def requireable_paths(base_dir)
+      def requireable_paths(base_dir, reject_prefixes: [])
         ext = ".{rb,#{RbConfig::CONFIG['DLEXT']}}"
         ext_regexp = /\.(rb|#{RbConfig::CONFIG['DLEXT']})\z/
         files = Dir.glob(["*#{ext}", "*/*#{ext}"], base: base_dir).map { |p| p.sub(ext_regexp, '') }
         dirs = Dir.glob('*/*', base: base_dir).filter_map do |path|
           "#{path}/" if File.directory?(File.join(base_dir, path))
         end
-        (files + dirs).sort
+        (files + dirs).sort.reject do |path|
+          reject_prefixes.any? { path.start_with?(_1) }
+        end
       rescue Errno::EPERM
         []
       end
