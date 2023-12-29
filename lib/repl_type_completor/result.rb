@@ -139,18 +139,26 @@ module ReplTypeCompletor
       type = type.types.find { _1.all_methods.include? name.to_sym }
       case type
       when Types::SingletonType
-        "#{Types.class_name_of(type.module_or_class)}.#{name}"
+        "#{doc_class_module_name(type.module_or_class)}.#{name}"
       when Types::InstanceType
-        "#{Types.class_name_of(type.klass)}##{name}"
+        "#{doc_class_module_name(type.klass)}##{name}"
       end
     end
 
     def call_or_const_doc(type, name)
       if name =~ /\A[A-Z]/
         type = type.types.grep(Types::SingletonType).find { _1.module_or_class.const_defined?(name) }
-        type.module_or_class == Object ? name : "#{Types.class_name_of(type.module_or_class)}::#{name}" if type
+        type.module_or_class == Object ? name : "#{doc_class_module_name(type.module_or_class)}::#{name}" if type
       else
         method_doc(type, name)
+      end
+    end
+
+    def doc_class_module_name(module_or_class)
+      if Class === module_or_class
+        Types.class_name_of(module_or_class)
+      else
+        Methods::MODULE_NAME_METHOD.bind_call(module_or_class) || 'Module'
       end
     end
 
@@ -159,9 +167,9 @@ module ReplTypeCompletor
       type.types.each do |t|
         case t
         when Types::SingletonType
-          return Types.class_name_of(t.module_or_class)
+          return doc_class_module_name(t.module_or_class)
         when Types::InstanceType
-          return Types.class_name_of(t.klass)
+          return doc_class_module_name(t.klass)
         end
       end
       nil
