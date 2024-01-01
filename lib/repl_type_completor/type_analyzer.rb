@@ -8,16 +8,20 @@ require 'prism'
 module ReplTypeCompletor
   class TypeAnalyzer
     class DigTarget
-      def initialize(parents, receiver, &block)
-        @dig_ids = parents.to_h { [_1.__id__, true] }
-        @target_id = receiver.__id__
-        @block = block
+      def initialize(parents)
+        @dig_ids = Set.new(parents.map(&:__id__))
+        @events = {}
       end
 
-      def dig?(node) = @dig_ids[node.__id__]
-      def target?(node) = @target_id == node.__id__
-      def resolve(type, scope)
-        @block.call type, scope
+      def on(target, &block)
+        @dig_ids << target.__id__
+        @events[target.__id__] = block
+      end
+
+      def dig?(node) = @dig_ids.include?(node.__id__)
+      def target?(node) = @events.key?(node.__id__)
+      def trigger(node, type, scope)
+        @events[node.__id__]&.call type, scope
       end
     end
 
@@ -46,7 +50,7 @@ module ReplTypeCompletor
       else
         result = Types::NIL
       end
-      @dig_targets.resolve result, scope if @dig_targets.target? node
+      @dig_targets.trigger node, result, scope
       result
     end
 
@@ -241,7 +245,7 @@ module ReplTypeCompletor
             # method(args, &:completion_target)
             call_block_proc = ->(block_args, _self_type) do
               block_receiver = block_args.first || Types::OBJECT
-              @dig_targets.resolve block_receiver, scope
+              @dig_targets.trigger block_sym_node, block_receiver, scope
               Types::OBJECT
             end
           else
@@ -890,7 +894,7 @@ module ReplTypeCompletor
         name = node.name.to_s
         type = scope[name]
       end
-      @dig_targets.resolve type, scope if @dig_targets.target? node
+      @dig_targets.trigger node, type, scope
       [type, receiver, parent_module, name]
     end
 
@@ -1164,9 +1168,11 @@ module ReplTypeCompletor
     end
 
     def self.calculate_target_type_scope(binding, parents, target)
-      dig_targets = DigTarget.new(parents, target) do |type, scope|
+      dig_targets = DigTarget.new(parents)
+      dig_targets.on target do |type, scope|
         return type, scope
       end
+      yield dig_targets if block_given?
       program = parents.first
       scope = Scope.from_binding(binding, program.locals)
       new(dig_targets).evaluate program, scope

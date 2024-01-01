@@ -92,6 +92,23 @@ module TestReplTypeCompletor
       assert_doc_namespace('lvar = ""; lvar.ascii_only?', 'String#ascii_only?', binding: bind)
     end
 
+    def test_kwarg
+      o = Object.new; def o.foo(bar:, baz: true); end
+      m = Module.new; def m.foo(foobar:, foobaz: true); end
+      bind = binding
+      # kwarg name from method.parameters
+      assert_completion('o.foo ba', binding: bind, include: ['r:', 'z:'])
+      assert_completion('m.foo fo', binding: bind, include: ['obar:', 'obaz:'])
+      assert_completion('foo ba', binding: o.instance_eval { binding }, include: ['r:', 'z:'])
+      assert_completion('foo fo', binding: m.instance_eval { binding }, include: ['obar:', 'obaz:'])
+      # kwarg name from RBS
+      assert_completion('"".each_line ch', binding: bind, include: 'omp:')
+      assert_completion('String.new en', binding: bind, include: 'coding:')
+      # assert completion when kwarg name is not found
+      assert_completion('o.inspect ra', binding: bind, include: 'nd')
+      assert_completion('o.undefined_method ra', binding: bind, include: 'nd')
+    end
+
     def test_const
       assert_completion('Ar', include: 'ray')
       assert_completion('::Ar', include: 'ray')

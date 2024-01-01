@@ -67,6 +67,23 @@ module ReplTypeCompletor
       calculate_scope = -> { TypeAnalyzer.calculate_target_type_scope(binding, parents, target_node).last }
       calculate_type_scope = ->(node) { TypeAnalyzer.calculate_target_type_scope binding, [*parents, target_node], node }
 
+      calculate_lvar_or_method = ->(name) {
+        if parents[-1].is_a?(Prism::ArgumentsNode) && parents[-2].is_a?(Prism::CallNode)
+          kwarg_call_node = parents[-2]
+          kwarg_method_sym = kwarg_call_node.message.to_sym
+        end
+        kwarg_call_receiver = nil
+        lvar_or_method_scope = TypeAnalyzer.calculate_target_type_scope binding, parents, target_node do |dig_targets|
+          if kwarg_call_node&.receiver
+            dig_targets.on kwarg_call_node.receiver do |type, _scope|
+              kwarg_call_receiver = type
+            end
+          end
+        end.last
+        kwarg_call_receiver = lvar_or_method_scope.self_type if kwarg_call_node && kwarg_call_node.receiver.nil?
+        [:lvar_or_method, name, lvar_or_method_scope, kwarg_call_receiver && [kwarg_call_receiver, kwarg_method_sym]]
+      }
+
       case target_node
       when Prism::StringNode
         return unless target_node.closing&.empty?
@@ -92,7 +109,7 @@ module ReplTypeCompletor
         return if target_node.is_a?(Prism::CallNode) && target_node.opening
 
         name = target_node.message.to_s
-        return [:lvar_or_method, name, calculate_scope.call] if target_node.receiver.nil?
+        return calculate_lvar_or_method.call(name) if target_node.receiver.nil?
 
         self_call = target_node.receiver.is_a? Prism::SelfNode
         op = target_node.call_operator
@@ -100,7 +117,7 @@ module ReplTypeCompletor
         receiver_type = receiver_type.nonnillable if op == '&.'
         [op == '::' ? :call_or_const : :call, name, receiver_type, self_call]
       when Prism::LocalVariableReadNode, Prism::LocalVariableTargetNode
-        [:lvar_or_method, target_node.name.to_s, calculate_scope.call]
+        calculate_lvar_or_method.call(target_node.name.to_s)
       when Prism::ConstantReadNode, Prism::ConstantTargetNode
         name = target_node.name.to_s
         if parents.last.is_a? Prism::ConstantPathNode
