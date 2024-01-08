@@ -694,6 +694,15 @@ module TestReplTypeCompletor
       assert_call('f((x=1)=>1); x.', include: Integer)
     end
 
+    def test_lambda_args
+      assert_call('->(*a){a.', include: Array)
+      assert_call('->(**a){a.', include: Hash)
+      assert_call('->(a=1){a.', include: Integer)
+      assert_call('->a{a.', include: Object)
+      assert_call('->(){1.', include: Integer)
+      assert_call('->{_1.', include: Object)
+    end
+
     def test_block_args
       assert_call('[1,2,3].tap{|a| a.', include: Array)
       assert_call('[1,2,3].tap{|a,| a.', include: Integer)

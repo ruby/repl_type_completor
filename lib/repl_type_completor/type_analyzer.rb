@@ -439,7 +439,12 @@ module ReplTypeCompletor
 
       block_scope = Scope.new scope, { **local_table, Scope::BREAK_RESULT => nil, Scope::NEXT_RESULT => nil, Scope::RETURN_RESULT => nil }
       block_scope.conditional do |s|
-        assign_parameters node.parameters.parameters, s, [], {} if node.parameters.is_a?(Prism::ParametersNode) && node.parameters.parameters
+        case node.parameters
+        when Prism::NumberedParametersNode
+          assign_numbered_parameters node.parameters.maximum, s, [Types::OBJECT] * node.parameters.maximum, {}
+        when Prism::BlockParametersNode
+          assign_parameters node.parameters.parameters, s, [], {} if node.parameters.parameters
+        end
         evaluate node.body, s if node.body
       end
       block_scope.merge_jumps
