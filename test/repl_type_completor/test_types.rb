@@ -96,5 +96,19 @@ module TestReplTypeCompletor
       type = ReplTypeCompletor::Types.type_from_object bo
       assert type.all_methods.include?(:foobar)
     end
+
+    def test_kwargs_names
+      bo = BasicObject.new
+      def bo.foobar(bo_kwarg1: nil, bo_kwarg2:); end
+      bo_type = ReplTypeCompletor::Types.type_from_object bo
+      assert_equal %i[bo_kwarg1 bo_kwarg2], ReplTypeCompletor::Types.method_kwargs_names(bo_type, :foobar)
+      str_type = ReplTypeCompletor::Types::STRING
+      assert_include ReplTypeCompletor::Types.method_kwargs_names(str_type, :each_line), :chomp
+      singleton_type = ReplTypeCompletor::Types::SingletonType.new String
+      assert_include ReplTypeCompletor::Types.method_kwargs_names(singleton_type, :new), :encoding
+      union_type = ReplTypeCompletor::Types::UnionType[bo_type, str_type, singleton_type]
+      assert_include ReplTypeCompletor::Types.method_kwargs_names(union_type, :each_line), :chomp
+      assert_equal ReplTypeCompletor::Types.method_kwargs_names(str_type, :undefined_method), []
+    end
   end
 end

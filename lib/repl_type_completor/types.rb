@@ -61,11 +61,37 @@ module ReplTypeCompletor
       types = receivers.flat_map do |receiver_type, klass, singleton|
         method = rbs_search_method klass, method_name, singleton
         next [] unless method
-        method.method_types.map do |method|
-          from_rbs_type(method.type.return_type, receiver_type, {})
+        method.method_types.map do |method_type|
+          from_rbs_type(method_type.type.return_type, receiver_type, {})
         end
       end
       UnionType[*types]
+    end
+
+    def self.method_kwargs_names(type, method_name)
+      receivers = type.types.map do |t|
+        case t
+        in SingletonType
+          [t.module_or_class, true]
+        in InstanceType
+          [t.klass, false]
+        end
+      end
+      parameters_keywords = receivers.flat_map do |klass, singleton|
+        method_obj = singleton ? klass.method(method_name) : klass.instance_method(method_name)
+        method_obj.parameters.filter_map { _2 if _1 == :key || _1 == :keyreq }
+      rescue NameError
+        []
+      end
+      rbs_keywords = receivers.flat_map do |klass, singleton|
+        method = rbs_search_method klass, method_name, singleton
+        next [] unless method
+
+        method.method_types.flat_map do |method_type|
+          method_type.type.required_keywords.keys | method_type.type.optional_keywords.keys
+        end
+      end
+      (parameters_keywords | rbs_keywords).sort
     end
 
     def self.rbs_methods(type, method_name, args_types, kwargs_type, has_block)
