@@ -35,7 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rbs: ['latest', '3.0', '2.7.0']
+        rbs: ['latest', '3.4', '3.2', '3.0', '2.7.0']
     env:
       GEMFILE_RBS_VERSION: ${{ matrix.rbs }}
     steps:
@@ -53,7 +53,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        prism: ['latest', '0.20.0', '0.19.0']
+        prism: ['latest', '0.23.0', '0.21.0', '0.19.0']
     env:
       GEMFILE_PRISM_VERSION: ${{ matrix.prism }}
     steps:
