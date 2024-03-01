@@ -266,7 +266,9 @@ module ReplTypeCompletor
               when Prism::NumberedParametersNode
                 assign_numbered_parameters node.block.parameters.maximum, block_scope, block_args, {}
               when Prism::BlockParametersNode
-                assign_parameters node.block.parameters.parameters, block_scope, block_args, {}
+                if node.block.parameters.parameters
+                  assign_parameters node.block.parameters.parameters, block_scope, block_args, {}
+                end
               when Prism::ItParametersNode
                 scope['_1'] = block_args.first || Types::NIL
               end
