@@ -660,6 +660,7 @@ module TestReplTypeCompletor
       assert_call('1 in a; a.', include: Integer)
       assert_call('a=1; x in String=>a; a.', include: [Integer, String])
       assert_call('a=1; x=>String=>a; a.', include: String, exclude: Integer)
+      assert_call('x in (((String)|Integer))=>a; a.', include: [String, Integer])
     end
 
     def test_bottom_type_termination

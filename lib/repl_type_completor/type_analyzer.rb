@@ -971,6 +971,8 @@ module ReplTypeCompletor
     end
 
     def evaluate_match_pattern(value, pattern, scope)
+      pattern = pattern.body while pattern.is_a?(Prism::ParenthesesNode)
+
       # TODO: scope.terminate_with Scope::PATTERNMATCH_BREAK, Types::NIL
       case pattern
       when Prism::FindPatternNode
