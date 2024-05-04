@@ -419,7 +419,8 @@ module ReplTypeCompletor
     def evaluate_constant_path_write_node(node, scope)
       receiver = evaluate node.target.parent, scope if node.target.parent
       value = evaluate node.value, scope
-      const_path_write receiver, node.target.child.name.to_s, value, scope
+      name = node.target.respond_to?(:name) ? node.target.name.to_s : node.target.child.name.to_s
+      const_path_write receiver, name, value, scope
       value
     end
 
@@ -871,7 +872,7 @@ module ReplTypeCompletor
     def evaluate_constant_node_info(node, scope)
       case node
       when Prism::ConstantPathNode
-        name = node.child.name.to_s
+        name = node.respond_to?(:name) ? node.name.to_s : node.child.name.to_s
         if node.parent
           receiver = evaluate node.parent, scope
           if receiver.is_a? Types::SingletonType
@@ -1042,7 +1043,8 @@ module ReplTypeCompletor
         scope[node.name.to_s] = value
       when Prism::ConstantPathTargetNode
         receiver = evaluated_receivers&.[](node.parent) || evaluate(node.parent, scope) if node.parent
-        const_path_write receiver, node.child.name.to_s, value, scope
+        name = node.respond_to?(:name) ? node.name.to_s : node.child.name.to_s
+        const_path_write receiver, name, value, scope
       end
     end
 
