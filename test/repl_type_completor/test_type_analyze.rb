@@ -74,7 +74,11 @@ module TestReplTypeCompletor
       assert_equal [:ivar, '@a'], analyze('begin; rescue => @a')[0, 2]
       assert_equal [:cvar, '@@a'], analyze('begin; rescue => @@a')[0, 2]
       assert_equal [:const, 'A'], analyze('begin; rescue => A')[0, 2]
+      assert_equal [:const, 'B'], analyze('begin; rescue => A::B')[0, 2]
       assert_equal [:call, 'b'], analyze('begin; rescue => a.b')[0, 2]
+      assert_call 'begin; rescue => (a=1)::B; a.', include: Integer
+      assert_call 'begin; rescue => A; A.', include: StandardError
+      assert_call 'begin; rescue => Array::A; Array::A.', include: StandardError
     end
 
     def test_ref

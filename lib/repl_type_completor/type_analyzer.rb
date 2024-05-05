@@ -579,12 +579,7 @@ module ReplTypeCompletor
           end
           error_types << Types::InstanceType.new(StandardError) if error_types.empty?
           error_type = Types::UnionType[*error_types]
-          case node.reference
-          when Prism::LocalVariableTargetNode, Prism::InstanceVariableTargetNode, Prism::ClassVariableTargetNode, Prism::GlobalVariableTargetNode, Prism::ConstantTargetNode
-            s[node.reference.name.to_s] = error_type
-          when Prism::CallTargetNode, Prism::IndexTargetNode
-            evaluate_multi_write_receiver node.reference, s, nil
-          end
+          evaluate_write node.reference, error_type, s, nil
         end
         node.statements ? evaluate(node.statements, s) : Types::NIL
       end
