@@ -101,6 +101,15 @@ module ReplTypeCompletor
         [op == '::' ? :call_or_const : :call, name, receiver_type, self_call]
       when Prism::LocalVariableReadNode, Prism::LocalVariableTargetNode
         [:lvar_or_method, target_node.name.to_s, calculate_scope.call]
+      when Prism::ConstantPathNode
+        name = target_node.name.to_s
+        if target_node.parent # A::B
+          receiver, scope = calculate_type_scope.call(target_node.parent)
+          [:const, name, receiver, scope]
+        else # ::A
+          scope = calculate_scope.call
+          [:const, name, Types::SingletonType.new(Object), scope]
+        end
       when Prism::ConstantReadNode, Prism::ConstantTargetNode
         name = target_node.name.to_s
         if parents.last.is_a? Prism::ConstantPathNode
