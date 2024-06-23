@@ -309,6 +309,11 @@ module ReplTypeCompletor
       end
     end
 
+    def operator_write_node_binop(node)
+      # `operator` is deprecated in Prism 0.29.0
+      node.respond_to?(:binary_operator) ? node.binary_operator : node.operator
+    end
+
     def evaluate_call_operator_write_node(node, scope) = evaluate_call_write(node, scope, :operator, node.write_name)
     def evaluate_call_and_write_node(node, scope) = evaluate_call_write(node, scope, :and, node.write_name)
     def evaluate_call_or_write_node(node, scope) = evaluate_call_write(node, scope, :or, node.write_name)
@@ -342,14 +347,14 @@ module ReplTypeCompletor
         Types::UnionType[left, right]
       else
         right = evaluate node.value, scope
-        method_call left, node.operator, [right], nil, nil, scope, name_match: false
+        method_call left, operator_write_node_binop(node), [right], nil, nil, scope, name_match: false
       end
     end
 
     def evaluate_variable_operator_write(node, scope)
       left = scope[node.name.to_s] || Types::OBJECT
       right = evaluate node.value, scope
-      scope[node.name.to_s] = method_call left, node.operator, [right], nil, nil, scope, name_match: false
+      scope[node.name.to_s] = method_call left, operator_write_node_binop(node), [right], nil, nil, scope, name_match: false
     end
     alias evaluate_global_variable_operator_write_node evaluate_variable_operator_write
     alias evaluate_local_variable_operator_write_node evaluate_variable_operator_write
@@ -378,7 +383,7 @@ module ReplTypeCompletor
     def evaluate_constant_operator_write_node(node, scope)
       left = scope[node.name.to_s] || Types::OBJECT
       right = evaluate node.value, scope
-      scope[node.name.to_s] = method_call left, node.operator, [right], nil, nil, scope, name_match: false
+      scope[node.name.to_s] = method_call left, operator_write_node_binop(node), [right], nil, nil, scope, name_match: false
     end
 
     def evaluate_constant_and_write_node(node, scope)
@@ -395,7 +400,7 @@ module ReplTypeCompletor
     def evaluate_constant_path_operator_write_node(node, scope)
       left, receiver, _parent_module, name = evaluate_constant_node_info node.target, scope
       right = evaluate node.value, scope
-      value = method_call left, node.operator, [right], nil, nil, scope, name_match: false
+      value = method_call left, operator_write_node_binop(node), [right], nil, nil, scope, name_match: false
       const_path_write receiver, name, value, scope
       value
     end
