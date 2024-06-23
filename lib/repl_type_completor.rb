@@ -21,11 +21,15 @@ module ReplTypeCompletor
     end
 
     def load_rbs
-      Types.load_rbs_builder unless rbs_loaded?
+      Types.load_rbs_builder
     end
 
     def preload_rbs
       Types.preload_rbs_builder
+    end
+
+    def reload_rbs
+      Types.reload_rbs_builder
     end
 
     def analyze(code, binding:, filename: nil)
