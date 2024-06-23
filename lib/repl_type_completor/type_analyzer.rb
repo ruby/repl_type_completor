@@ -309,11 +309,6 @@ module ReplTypeCompletor
       end
     end
 
-    def operator_write_node_binop(node)
-      # `operator` is deprecated in Prism 0.29.0
-      node.respond_to?(:binary_operator) ? node.binary_operator : node.operator
-    end
-
     def evaluate_call_operator_write_node(node, scope) = evaluate_call_write(node, scope, :operator, node.write_name)
     def evaluate_call_and_write_node(node, scope) = evaluate_call_write(node, scope, :and, node.write_name)
     def evaluate_call_or_write_node(node, scope) = evaluate_call_write(node, scope, :or, node.write_name)
@@ -347,14 +342,14 @@ module ReplTypeCompletor
         Types::UnionType[left, right]
       else
         right = evaluate node.value, scope
-        method_call left, operator_write_node_binop(node), [right], nil, nil, scope, name_match: false
+        method_call left, node.binary_operator, [right], nil, nil, scope, name_match: false
       end
     end
 
     def evaluate_variable_operator_write(node, scope)
       left = scope[node.name.to_s] || Types::OBJECT
       right = evaluate node.value, scope
-      scope[node.name.to_s] = method_call left, operator_write_node_binop(node), [right], nil, nil, scope, name_match: false
+      scope[node.name.to_s] = method_call left, node.binary_operator, [right], nil, nil, scope, name_match: false
     end
     alias evaluate_global_variable_operator_write_node evaluate_variable_operator_write
     alias evaluate_local_variable_operator_write_node evaluate_variable_operator_write
@@ -383,7 +378,7 @@ module ReplTypeCompletor
     def evaluate_constant_operator_write_node(node, scope)
       left = scope[node.name.to_s] || Types::OBJECT
       right = evaluate node.value, scope
-      scope[node.name.to_s] = method_call left, operator_write_node_binop(node), [right], nil, nil, scope, name_match: false
+      scope[node.name.to_s] = method_call left, node.binary_operator, [right], nil, nil, scope, name_match: false
     end
 
     def evaluate_constant_and_write_node(node, scope)
@@ -400,7 +395,7 @@ module ReplTypeCompletor
     def evaluate_constant_path_operator_write_node(node, scope)
       left, receiver, _parent_module, name = evaluate_constant_node_info node.target, scope
       right = evaluate node.value, scope
-      value = method_call left, operator_write_node_binop(node), [right], nil, nil, scope, name_match: false
+      value = method_call left, node.binary_operator, [right], nil, nil, scope, name_match: false
       const_path_write receiver, name, value, scope
       value
     end
@@ -424,8 +419,7 @@ module ReplTypeCompletor
     def evaluate_constant_path_write_node(node, scope)
       receiver = evaluate node.target.parent, scope if node.target.parent
       value = evaluate node.value, scope
-      name = const_path_name(node.target)
-      const_path_write receiver, name, value, scope
+      const_path_write receiver, node.target.name.to_s, value, scope
       value
     end
 
@@ -844,16 +838,6 @@ module ReplTypeCompletor
       [args_types, kwargs_types, block_sym_node, !!block_arg]
     end
 
-    def const_path_name(node)
-      if node.respond_to?(:name)
-        # ConstantPathNode#name ConstantPathTargetNode#name is added in Prism 0.28.0
-        node.name.to_s
-      else
-        # ConstantPathNode#child ConstantPathTargetNode#child is deprecated in Prism 0.28.0
-        node.child.name.to_s
-      end
-    end
-
     def const_path_write(receiver, name, value, scope)
       if receiver # receiver::A = value
         singleton_type = receiver.types.find { _1.is_a? Types::SingletonType }
@@ -880,9 +864,9 @@ module ReplTypeCompletor
     end
 
     def evaluate_constant_node_info(node, scope)
+      name = node.name.to_s
       case node
       when Prism::ConstantPathNode
-        name = const_path_name(node)
         if node.parent
           receiver = evaluate node.parent, scope
           if receiver.is_a? Types::SingletonType
@@ -898,7 +882,6 @@ module ReplTypeCompletor
           type = Types::NIL
         end
       when Prism::ConstantReadNode
-        name = node.name.to_s
         type = scope[name]
       end
       @dig_targets.resolve type, scope if @dig_targets.target? node
@@ -1053,8 +1036,7 @@ module ReplTypeCompletor
         scope[node.name.to_s] = value
       when Prism::ConstantPathTargetNode
         receiver = evaluated_receivers&.[](node.parent) || evaluate(node.parent, scope) if node.parent
-        name = const_path_name(node)
-        const_path_write receiver, name, value, scope
+        const_path_write receiver, node.name.to_s, value, scope
       end
     end
 
