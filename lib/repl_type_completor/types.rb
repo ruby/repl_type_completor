@@ -8,28 +8,99 @@ module ReplTypeCompletor
 
     singleton_class.attr_reader :rbs_builder, :rbs_load_error
 
+    class Loader
+      attr_reader :load_started, :rbs_load_error
+
+      def initialize(thread: false, &block)
+        @load_callback = block
+        @gems = {}
+        @loaded_features = []
+        if thread
+          @queue = Thread::Queue.new
+          Thread.new { run }
+        else
+          run
+        end
+      end
+
+      def added_gems
+        features = $LOADED_FEATURES.dup
+        loaded_gems = (features - @loaded_features).filter_map do |lf|
+          next unless %r{(?<gem_path>.*/gems/(?<gem_name>[a-zA-Z0-9_-]+)-(?<version>\d+\.\d[\d\.a-zA-Z_]+)/)} =~ lf
+          next if @gems[gem_name]
+
+          [gem_name, [gem_path, version]]
+        end.to_h
+        @gems.merge!(loaded_gems)
+        @loaded_features = features
+        loaded_gems
+      end
+
+      def reload
+        @queue&.enq(:reload)
+      end
+
+      def terminate
+        @queue&.enq(:terminate)
+      end
+
+      def update_loader(loader)
+        new_gems = added_gems
+        new_gems.each do |library, (path, version)|
+          loader.add(library: library, version: version) if Dir.exist?("#{path}sig")
+        end
+        new_gems.any?
+      end
+
+      def load(loader)
+        @load_callback.call(RBS::DefinitionBuilder.new env: RBS::Environment.from_loader(loader).resolve_type_names)
+      end
+
+      def run
+        require 'rbs'
+        require 'rbs/cli'
+        loader = RBS::CLI::LibraryOptions.new.loader
+        loader.add path: Pathname('sig')
+        update_loader(loader)
+        load(loader)
+        return unless @queue
+
+        loop do
+          break if @queue.deq == :terminate
+          next unless update_loader(loader)
+
+          load(loader)
+        end
+      rescue LoadError, StandardError => e
+        @rbs_load_error = e
+        nil
+      end
+    end
+
     def self.rbs_load_started?
-      !!@load_started
+      !!@loader
     end
 
     def self.preload_rbs_builder
       return if rbs_load_started?
-      @load_started = true
-      Thread.new do
-        load_rbs_builder
+
+      @loader ||= Loader.new(thread: true) do |builder|
+        @rbs_builder = builder
       end
     end
 
+    def self.rbs_load_error
+      @loader&.rbs_load_error
+    end
+
     def self.load_rbs_builder
-      @load_started = true
-      require 'rbs'
-      require 'rbs/cli'
-      loader = RBS::CLI::LibraryOptions.new.loader
-      loader.add path: Pathname('sig')
-      @rbs_builder = RBS::DefinitionBuilder.new env: RBS::Environment.from_loader(loader).resolve_type_names
-    rescue LoadError, StandardError => e
-      @rbs_load_error = e
-      nil
+      @loader ||= Loader.new do |builder|
+        @rbs_builder = builder
+      end
+    end
+
+    def self.reload_rbs_builder
+      @loader.reload
     end
 
     def self.class_name_of(klass)
