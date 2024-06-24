@@ -13,7 +13,7 @@ module TestReplTypeCompletor
       end
       ReplTypeCompletor::Types.load_rbs_builder unless ReplTypeCompletor::Types.rbs_builder
     end
-    
+
     def teardown
       ReplTypeCompletor.singleton_class.remove_method(:handle_exception)
       ReplTypeCompletor.define_singleton_method(:handle_exception, &@handle_exception_method)
@@ -700,6 +700,11 @@ module TestReplTypeCompletor
       assert_call('[1][0].', include: Integer, exclude: [Array, NilClass])
       assert_call('[1].[](0).', include: Integer, exclude: [Array, NilClass])
       assert_call('[1].[](0){}.', include: Integer, exclude: [Array, NilClass])
+    end
+
+    def test_rbs_instance_type
+      assert_call('Thread.start{}.', include: Thread)
+      assert_call('"".encode("utf-8").', include: String)
     end
   end
 end
