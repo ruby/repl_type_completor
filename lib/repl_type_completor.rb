@@ -111,19 +111,7 @@ module ReplTypeCompletor
           [:const, name, Types::SingletonType.new(Object), scope]
         end
       when Prism::ConstantReadNode, Prism::ConstantTargetNode
-        name = target_node.name.to_s
-        if parents.last.is_a? Prism::ConstantPathNode
-          path_node = parents.last
-          if path_node.parent # A::B
-            receiver, scope = calculate_type_scope.call(path_node.parent)
-            [:const, name, receiver, scope]
-          else # ::A
-            scope = calculate_scope.call
-            [:const, name, Types::SingletonType.new(Object), scope]
-          end
-        else
-          [:const, name, nil, calculate_scope.call]
-        end
+        [:const, target_node.name.to_s, nil, calculate_scope.call]
       when Prism::GlobalVariableReadNode, Prism::GlobalVariableTargetNode
         [:gvar, target_node.name.to_s, calculate_scope.call]
       when Prism::InstanceVariableReadNode, Prism::InstanceVariableTargetNode
