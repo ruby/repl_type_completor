@@ -166,6 +166,12 @@ module TestReplTypeCompletor
       end
     end
 
+    def test_anonymous_class
+      bind = eval('s = Class.new(Struct.new(:foobar)).new; binding')
+      assert_completion('s.', binding: bind, include: ['foobar', 'each_pair'])
+      assert_doc_namespace('s.each_pair', 'Struct#each_pair', binding: bind)
+    end
+
     DEPRECATED_CONST = 1
     deprecate_constant :DEPRECATED_CONST
     def test_deprecated_const_without_warning
