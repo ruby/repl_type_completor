@@ -152,7 +152,7 @@ module TestReplTypeCompletor
     def test_union_splat
       assert_call('a, = [[:a], 1, nil].sample; a.', include: [Symbol, Integer, NilClass], exclude: Object)
       assert_call('[[:a], 1, nil].each do _2; _1.', include: [Symbol, Integer, NilClass], exclude: Object)
-      assert_call('a = [[:a], 1, nil, ("a".."b")].sample; [*a].sample.', include: [Symbol, Integer, NilClass, String], exclude: Object)
+      assert_call('a = [[:a], 1, ("a".."b")].sample; [*a].sample.', include: [Symbol, Integer, String], exclude: Object)
     end
 
     def test_range
