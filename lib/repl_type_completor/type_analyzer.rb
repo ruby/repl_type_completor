@@ -466,13 +466,19 @@ module ReplTypeCompletor
       value.is_a?(Array) ? Types.array_of(*value) : value
     end
 
-    def evaluate_if_node(node, scope) = evaluate_if_unless(node, scope)
-    def evaluate_unless_node(node, scope) = evaluate_if_unless(node, scope)
-    def evaluate_if_unless(node, scope)
+    def evaluate_if_node(node, scope)
       evaluate node.predicate, scope
       Types::UnionType[*scope.run_branches(
         -> { node.statements ? evaluate(node.statements, _1) : Types::NIL },
-        -> { node.consequent ? evaluate(node.consequent, _1) : Types::NIL }
+        -> { node.subsequent ? evaluate(node.subsequent, _1) : Types::NIL }
+      )]
+    end
+
+    def evaluate_unless_node(node, scope)
+      evaluate node.predicate, scope
+      Types::UnionType[*scope.run_branches(
+        -> { node.statements ? evaluate(node.statements, _1) : Types::NIL },
+        -> { node.else_clause ? evaluate(node.else_clause, _1) : Types::NIL }
       )]
     end
 
@@ -582,10 +588,10 @@ module ReplTypeCompletor
         end
         node.statements ? evaluate(node.statements, s) : Types::NIL
       end
-      if node.consequent # begin; rescue A; rescue B; end
+      if node.subsequent # begin; rescue A; rescue B; end
         types = scope.run_branches(
           run_rescue,
-          -> { evaluate node.consequent, _1 }
+          -> { evaluate node.subsequent, _1 }
         )
         Types::UnionType[*types]
       else
@@ -700,8 +706,8 @@ module ReplTypeCompletor
       branches = node.conditions.map do |condition|
         ->(s) { evaluate_case_when_condition condition, s }
       end
-      if node.consequent
-        branches << ->(s) { evaluate node.consequent, s }
+      if node.else_clause
+        branches << ->(s) { evaluate node.else_clause, s }
       else
         branches << ->(_s) { Types::NIL }
       end
@@ -714,8 +720,8 @@ module ReplTypeCompletor
       branches = node.conditions.map do |condition|
         ->(s) { evaluate_case_in_condition target, condition, s }
       end
-      if node.consequent
-        branches << ->(s) { evaluate node.consequent, s }
+      if node.else_clause
+        branches << ->(s) { evaluate node.else_clause, s }
       end
       Types::UnionType[*scope.run_branches(*branches)]
     end
