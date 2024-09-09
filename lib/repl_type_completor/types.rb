@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'rbs'
+require 'rbs/cli'
 require_relative 'methods'
 
 module ReplTypeCompletor
@@ -22,8 +24,6 @@ module ReplTypeCompletor
 
     def self.load_rbs_builder
       @load_started = true
-      require 'rbs'
-      require 'rbs/cli'
       loader = RBS::CLI::LibraryOptions.new.loader
       loader.add path: Pathname('sig')
       @rbs_builder = RBS::DefinitionBuilder.new env: RBS::Environment.from_loader(loader).resolve_type_names
