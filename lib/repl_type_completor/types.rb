@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'rbs'
+require 'rubygems'
 require 'rbs/cli'
 require_relative 'methods'
 
@@ -25,7 +26,13 @@ module ReplTypeCompletor
     def self.load_rbs_builder
       @load_started = true
       loader = RBS::CLI::LibraryOptions.new.loader
-      loader.add path: Pathname('sig')
+      sig_path = Pathname('sig')
+      loader.add path: sig_path
+      expanded_sig_path = sig_path.expand_path.to_s
+      Gem.loaded_specs.values.each do |spec|
+        gem_sig_path = File.expand_path("#{spec.gem_dir}/sig")
+        loader.add(library: spec.name, version: spec.version) if Dir.exist?(gem_sig_path) && expanded_sig_path != gem_sig_path
+      end
       @rbs_builder = RBS::DefinitionBuilder.new env: RBS::Environment.from_loader(loader).resolve_type_names
     rescue LoadError, StandardError => e
       @rbs_load_error = e
