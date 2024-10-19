@@ -101,6 +101,8 @@ module ReplTypeCompletor
         [op == '::' ? :call_or_const : :call, name, receiver_type, self_call]
       when Prism::LocalVariableReadNode, Prism::LocalVariableTargetNode
         [:lvar_or_method, target_node.name.to_s, calculate_scope.call]
+      when Prism::ItLocalVariableReadNode
+        [:lvar_or_method, 'it', calculate_scope.call]
       when Prism::ConstantPathNode, Prism::ConstantPathTargetNode
         name = target_node.name.to_s
         if target_node.parent # A::B
@@ -122,8 +124,8 @@ module ReplTypeCompletor
     end
 
     def find_target(node, position)
-      # Skip because NumberedParametersNode#location gives location of whole block
-      return if node.is_a? Prism::NumberedParametersNode
+      # Skip because location of these nodes gives location of whole block
+      return if node.is_a?(Prism::NumberedParametersNode) || node.is_a?(Prism::ItParametersNode)
 
       node.compact_child_nodes.each do |n|
         match = find_target(n, position)

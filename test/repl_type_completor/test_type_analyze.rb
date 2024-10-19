@@ -552,6 +552,16 @@ module TestReplTypeCompletor
       assert_call('[:a].each_with_index{_2.', include: Integer, exclude: Symbol)
     end
 
+    def test_it_parameter
+      assert_call('->{it.', include: Object, exclude: NilClass)
+      assert_call('->{p it; it=:a; it.', include: Symbol, exclude: Object)
+      assert_call('1.tap{it.', include: Integer)
+      assert_call('1.tap{p it; it=:a; it.', include: Symbol, exclude: Integer)
+      assert_call('[1].tap{it.', include: Array)
+      assert_call('loop{it.', include: NilClass, exclude: Object)
+      assert_call('[:a].each_with_index{it.', include: Symbol, exclude: [Integer, Array])
+    end
+
     def test_if_unless
       assert_call('if cond; 1; end.', include: Integer)
       assert_call('unless true; 1; end.', include: Integer)

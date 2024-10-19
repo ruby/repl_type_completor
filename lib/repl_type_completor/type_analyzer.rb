@@ -229,6 +229,11 @@ module ReplTypeCompletor
     alias evaluate_class_variable_read_node evaluate_reference_read
     alias evaluate_instance_variable_read_node evaluate_reference_read
 
+    def evaluate_it_local_variable_read_node(_node, scope)
+      # `it` is not a normal local variable. It can be overrided like `tap{p it; it=1}`.
+      # Use the name `_1` instead of `it` to avoid conflict.
+      scope['_1'] || Types::NIL
+    end
 
     def evaluate_call_node(node, scope)
       receiver_type = node.receiver ? evaluate(node.receiver, scope) : scope.self_type
@@ -262,6 +267,8 @@ module ReplTypeCompletor
                 assign_numbered_parameters node.block.parameters.maximum, block_scope, block_args, {}
               when Prism::BlockParametersNode
                 assign_parameters node.block.parameters.parameters, block_scope, block_args, {}
+              when Prism::ItParametersNode
+                scope['_1'] = block_args.first || Types::NIL
               end
               result = node.block.body ? evaluate(node.block.body, block_scope) : Types::NIL
               block_scope.merge_jumps
@@ -425,9 +432,14 @@ module ReplTypeCompletor
 
     def evaluate_lambda_node(node, scope)
       local_table = node.locals.to_h { [_1.to_s, Types::OBJECT] }
+
+      # `it` is not added to local_table because it is not a normal local variable.
+      # We need to explicitly add it to the scope.
+      local_table['_1'] = Types::OBJECT if node.parameters.is_a?(Prism::ItParametersNode)
+
       block_scope = Scope.new scope, { **local_table, Scope::BREAK_RESULT => nil, Scope::NEXT_RESULT => nil, Scope::RETURN_RESULT => nil }
       block_scope.conditional do |s|
-        assign_parameters node.parameters.parameters, s, [], {} if node.parameters&.parameters
+        assign_parameters node.parameters.parameters, s, [], {} if node.parameters.is_a?(Prism::ParametersNode) && node.parameters.parameters
         evaluate node.body, s if node.body
       end
       block_scope.merge_jumps
