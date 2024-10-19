@@ -230,7 +230,7 @@ module ReplTypeCompletor
     alias evaluate_instance_variable_read_node evaluate_reference_read
 
     def evaluate_it_local_variable_read_node(_node, scope)
-      # `it` is not a normal local variable. It can be overrided like `tap{p it; it=1}`.
+      # `it` is not a normal local variable. It can be overridden like `tap{p it; it=1}`.
       # Use the name `_1` instead of `it` to avoid conflict.
       scope['_1'] || Types::NIL
     end
