@@ -92,6 +92,13 @@ module TestReplTypeCompletor
       assert_doc_namespace('lvar = ""; lvar.ascii_only?', 'String#ascii_only?', binding: bind)
     end
 
+    def test_confusing_lvar_method_it
+      bind = eval('item = 1; ins=1; random = 1; binding')
+      assert_completion('->{it', binding: bind, include: ['em', 'self'])
+      assert_completion('->{ins', binding: bind, include: 'pect')
+      assert_completion('->{rand', binding: bind, include: 'om')
+    end
+
     def test_const
       assert_completion('Ar', include: 'ray')
       assert_completion('::Ar', include: 'ray')
