@@ -13,7 +13,7 @@ module TestReplTypeCompletor
       end
       ReplTypeCompletor::Types.load_rbs_builder unless ReplTypeCompletor::Types.rbs_builder
     end
-    
+
     def teardown
       ReplTypeCompletor.singleton_class.remove_method(:handle_exception)
       ReplTypeCompletor.define_singleton_method(:handle_exception, &@handle_exception_method)
@@ -710,6 +710,14 @@ module TestReplTypeCompletor
       assert_call('[1][0].', include: Integer, exclude: [Array, NilClass])
       assert_call('[1].[](0).', include: Integer, exclude: [Array, NilClass])
       assert_call('[1].[](0){}.', include: Integer, exclude: [Array, NilClass])
+    end
+
+    def test_rbs_untyped_function
+      # Block of Thread#initialize `(*untyped) { (?) -> void } -> void` is RBS::Types::UntypedFunction
+      assert_call('Thread.new{_1.', include: NilClass)
+      assert_call('"a".instance_eval{Thread.new{self.', include: String)
+      # Proc#call `(?) -> untyped` is RBS::Types::UntypedFunction
+      assert_call('proc{}.call; 1.', include: Integer)
     end
   end
 end
