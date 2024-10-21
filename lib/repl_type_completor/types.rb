@@ -83,7 +83,9 @@ module ReplTypeCompletor
       methods_with_score = receivers.flat_map do |receiver_type, klass, singleton|
         method = rbs_search_method klass, method_name, singleton
         next [] unless method
-        method.method_types.map do |method_type|
+        method.method_types.filter_map do |method_type|
+          next unless method_type.type.respond_to?(:required_positionals)
+
           score = 0
           score += 2 if !!method_type.block == has_block
           reqs = method_type.type.required_positionals

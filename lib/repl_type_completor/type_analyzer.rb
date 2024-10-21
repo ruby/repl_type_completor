@@ -1145,7 +1145,7 @@ module ReplTypeCompletor
         receiver_vars = receiver.is_a?(Types::InstanceType) ? receiver.params : {}
         free_vars = method.type.free_variables - receiver_vars.keys.to_set
         vars = receiver_vars.merge Types.match_free_variables(free_vars, method_params, given_params)
-        if block && method.block
+        if block && method.block && method.block.type.respond_to?(:required_positionals)
           params_type = method.block.type.required_positionals.map do |func_param|
             Types.from_rbs_type func_param.type, receiver, vars
           end
