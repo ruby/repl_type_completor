@@ -2,6 +2,8 @@ module ReplTypeCompletor
   VERSION: String
 
   class Result
+    def type: () -> Symbol
+    def prefix: () -> String
     def completion_candidates: () -> Array[String]
     def doc_namespace: (String) -> String?
   end
