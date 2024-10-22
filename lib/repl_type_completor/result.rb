@@ -38,6 +38,14 @@ module ReplTypeCompletor
       @source_file = source_file
     end
 
+    def type
+      @analyze_result[0]
+    end
+
+    def prefix
+      @analyze_result[1]
+    end
+
     def completion_candidates
       verbose, $VERBOSE = $VERBOSE, nil
       candidates = case @analyze_result
