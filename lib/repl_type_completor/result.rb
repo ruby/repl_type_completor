@@ -64,7 +64,7 @@ module ReplTypeCompletor
       in [:gvar, name, scope]
         scope.global_variables
       in [:symbol, name]
-        Symbol.all_symbols.map { _1.inspect[1..] }
+        filter_symbol_candidates(Symbol.all_symbols, name, limit: 100)
       in [:call, name, type, self_call]
         (self_call ? type.all_methods : type.methods).map(&:to_s) - HIDDEN_METHODS
       in [:lvar_or_method, name, scope]
@@ -115,6 +115,25 @@ module ReplTypeCompletor
     end
 
     private
+
+    def filter_symbol_candidates(symbols, prefix, limit:)
+      sym_prefix = ":#{prefix}"
+      candidates = symbols.filter_map do |s|
+        next unless s.start_with?(prefix) # Fast and inaccurate check before calling inspect
+
+        inspect = s.inspect
+        inspect[1..] if inspect.start_with?(sym_prefix) # Reject `:"a b"` when completing `:a`
+      rescue EncodingError
+        # ignore
+      end
+
+      if candidates.size > limit
+        # min(n) + max(n) is faster than sort and slice
+        candidates.min(limit - limit / 2) + candidates.max(limit / 2).reverse
+      else
+        candidates.sort
+      end
+    end
 
     def method_doc(type, name)
       type = type.types.find { _1.all_methods.include? name.to_sym }

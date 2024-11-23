@@ -63,6 +63,16 @@ module TestReplTypeCompletor
       assert_completion(prefix, include: sym.inspect.delete_prefix(prefix))
     end
 
+    def test_symbol_limit
+      result = ReplTypeCompletor::Result.new([:symbol, 'sym'], binding, 'file')
+      symbols = [:ae, :ad, :ab1, :ab2, :ac, :aa, :b, :"a a", 75.chr('utf-7').to_sym]
+      assert_equal(%w[aa ab1 ab2 ac ad ae], result.send(:filter_symbol_candidates, symbols, 'a', limit: 100))
+      assert_equal(%w[aa ab1 ab2 ad ae], result.send(:filter_symbol_candidates, symbols, 'a', limit: 5))
+      assert_equal(%w[aa ab1 ad ae], result.send(:filter_symbol_candidates, symbols, 'a', limit: 4))
+      assert_equal(%w[ab1 ab2], result.send(:filter_symbol_candidates, symbols, 'ab', limit: 4))
+      assert_equal([], result.send(:filter_symbol_candidates, symbols, 'c', limit: 4))
+    end
+
     def test_call
       assert_completion('1.', include: 'abs')
       assert_completion('1.a', include: 'bs')
