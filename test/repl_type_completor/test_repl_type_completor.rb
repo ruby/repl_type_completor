@@ -253,6 +253,13 @@ module TestReplTypeCompletor
       ReplTypeCompletor.instance_variable_set(:@last_completion_error, nil)
     end
 
+    def test_loaded_gem_types
+      result = ReplTypeCompletor.analyze 'Prism.parse("code").', binding: binding
+      candidtes = result.completion_candidates
+      assert_includes candidtes, 'success?'
+      assert_includes candidtes, 'failure?'
+    end
+
     def test_info
       assert_equal "ReplTypeCompletor: #{ReplTypeCompletor::VERSION}, Prism: #{Prism::VERSION}, RBS: #{RBS::VERSION}", ReplTypeCompletor.info
     end
