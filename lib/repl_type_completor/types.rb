@@ -33,7 +33,13 @@ module ReplTypeCompletor
         gem_sig_path = File.expand_path("#{spec.gem_dir}/sig")
         loader.add(library: spec.name, version: spec.version) if Dir.exist?(gem_sig_path) && expanded_sig_path != gem_sig_path
       end
-      @rbs_builder = RBS::DefinitionBuilder.new env: RBS::Environment.from_loader(loader).resolve_type_names
+      env = RBS::Environment.from_loader(loader)
+      # [Hack] Monkey patch for improving development experience
+      def env.resolve_declaration(*, **)
+        Thread.pass
+        super
+      end
+      @rbs_builder = RBS::DefinitionBuilder.new env: env.resolve_type_names
     rescue LoadError, StandardError => e
       @rbs_load_error = e
       nil
