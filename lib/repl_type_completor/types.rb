@@ -332,6 +332,8 @@ module ReplTypeCompletor
         self_type.transform do |type|
           if type.is_a?(SingletonType) && type.module_or_class.is_a?(Class)
             InstanceType.new type.module_or_class
+          elsif type.is_a?(InstanceType)
+            InstanceType.new type.klass
           else
             OBJECT
           end

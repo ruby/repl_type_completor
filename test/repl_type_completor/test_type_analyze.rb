@@ -719,5 +719,10 @@ module TestReplTypeCompletor
       # Proc#call `(?) -> untyped` is RBS::Types::UntypedFunction
       assert_call('proc{}.call; 1.', include: Integer)
     end
+
+    def test_rbs_instance_type
+      assert_call('Thread.start{}.', include: Thread)
+      assert_call('"".encode("utf-8").', include: String)
+    end
   end
 end
