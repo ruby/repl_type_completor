@@ -29,10 +29,15 @@ module ReplTypeCompletor
       sig_path = Pathname('sig')
       loader.add path: sig_path
       expanded_sig_path = sig_path.expand_path.to_s
-      Gem.loaded_specs.values.each do |spec|
-        gem_sig_path = File.expand_path("#{spec.gem_dir}/sig")
-        loader.add(library: spec.name, version: spec.version) if Dir.exist?(gem_sig_path) && expanded_sig_path != gem_sig_path
+
+      unless File.exist?('rbs_collection.yaml')
+        # Load rbs signature from gems. This is a fallback when rbs_collection.yaml is not available.
+        Gem.loaded_specs.values.each do |spec|
+          gem_sig_path = File.expand_path("#{spec.gem_dir}/sig")
+          loader.add(library: spec.name, version: spec.version) if Dir.exist?(gem_sig_path) && expanded_sig_path != gem_sig_path
+        end
       end
+
       env = RBS::Environment.from_loader(loader)
       # [Hack] Monkey patch for improving development experience
       def env.resolve_declaration(*, **)
