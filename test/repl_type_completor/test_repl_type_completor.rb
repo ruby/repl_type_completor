@@ -254,13 +254,12 @@ module TestReplTypeCompletor
     end
 
     def test_loaded_gem_types
-      # sig directory does not exist when running with test-bundled-gems
-      omit unless Dir.exist?("#{Gem.loaded_specs['prism'].gem_dir}/sig")
+      # gem_dir/sig directory does not exist when running with `make test-bundled-gems`
+      omit unless Dir.exist?("#{Gem.loaded_specs['rbs'].gem_dir}/sig")
 
-      result = ReplTypeCompletor.analyze 'Prism.parse("code").', binding: binding
+      result = ReplTypeCompletor.analyze 'RBS::CLI::LibraryOptions.new.loader.', binding: binding
       candidtes = result.completion_candidates
-      assert_includes candidtes, 'success?'
-      assert_includes candidtes, 'failure?'
+      assert_includes candidtes, 'add'
     end
 
     def test_info
