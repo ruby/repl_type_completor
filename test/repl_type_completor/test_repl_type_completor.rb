@@ -254,10 +254,9 @@ module TestReplTypeCompletor
     end
 
     def test_loaded_gem_types
-      result = ReplTypeCompletor.analyze 'Prism.parse("code").', binding: binding
+      result = ReplTypeCompletor.analyze 'RBS::CLI::LibraryOptions.new.loader.', binding: binding
       candidtes = result.completion_candidates
-      assert_includes candidtes, 'success?'
-      assert_includes candidtes, 'failure?'
+      assert_includes candidtes, 'add'
     end
 
     def test_info
