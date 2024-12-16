@@ -29,6 +29,20 @@ jobs:
       - run: bundle install
       - run: bundle exec rake test
 
+  test-preinstalled-prism:
+    needs: ruby-versions
+    runs-on: ubuntu-latest
+    env:
+      GEMFILE_USE_PREINSTALLED_PRISM: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: head
+          bundler-cache: true
+      - run: bundle install
+      - run: bundle exec rake test
+
   test-rbs-versions:
     needs: ruby-versions
     runs-on: ubuntu-latest

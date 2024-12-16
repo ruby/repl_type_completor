@@ -2,8 +2,13 @@
 
 source 'https://rubygems.org'
 
-# Specify your gem's dependencies in repl_type_completor.gemspec
-gemspec
+if ENV['GEMFILE_USE_PREINSTALLED_PRISM']
+  # Preinstalled Prism is different from installed Prism. gem_dir is empty.
+  gem 'rbs'
+else
+  # Specify your gem's dependencies in repl_type_completor.gemspec
+  gemspec
+end
 
 gem 'irb', '>= 1.10.0'
 gem 'rake', '~> 13.0'
