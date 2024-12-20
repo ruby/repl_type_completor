@@ -58,6 +58,9 @@ module TestReplTypeCompletor
     end
 
     def test_symbol
+      result = ReplTypeCompletor.analyze(':symbol_prefix', binding: binding)
+      assert_equal :symbol, result.type
+      assert_equal 'symbol_prefix', result.prefix
       prefix = ':test_com'
       sym = :test_completion_symbol
       assert_completion(prefix, include: sym.inspect.delete_prefix(prefix))
