@@ -57,11 +57,22 @@ module ReplTypeCompletor
       Methods::MODULE_NAME_METHOD.bind_call klass
     end
 
+    if RBS::TypeName.respond_to?(:parse) # RBS >= 3.8.0
+      def self.rbs_absolute_type_name(name)
+        RBS::TypeName.parse(name).absolute!
+      end
+    else
+      def self.rbs_absolute_type_name(name)
+        # Deprecated in RBS 3.8.0
+        RBS::TypeName(name).absolute!
+      end
+    end
+
     def self.rbs_search_method(klass, method_name, singleton)
       klass.ancestors.each do |ancestor|
         name = class_name_of ancestor
         next unless name && rbs_builder
-        type_name = RBS::TypeName(name).absolute!
+        type_name = rbs_absolute_type_name(name)
         definition = (singleton ? rbs_builder.build_singleton(type_name) : rbs_builder.build_instance(type_name)) rescue nil
         method = definition.methods[method_name] if definition
         return method if method
@@ -211,7 +222,7 @@ module ReplTypeCompletor
         name = Types.class_name_of(@klass)
         return {} unless name && Types.rbs_builder
 
-        type_name = RBS::TypeName(name).absolute!
+        type_name = Types.rbs_absolute_type_name(name)
         Types.rbs_builder.build_instance(type_name).methods rescue {}
       end
       def inspect
