@@ -560,6 +560,8 @@ module TestReplTypeCompletor
       assert_call('[1].tap{it.', include: Array)
       assert_call('loop{it.', include: NilClass, exclude: Object)
       assert_call('[:a].each_with_index{it.', include: Symbol, exclude: [Integer, Array])
+      assert_call(':outer.tap{p it; "inner".tap{p it; it.', include: String, exclude: Symbol)
+      assert_call(':outer.tap{p it; "inner".tap{p it }; it.', include: Symbol, exclude: String)
     end
 
     def test_if_unless
