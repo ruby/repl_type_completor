@@ -259,6 +259,9 @@ module ReplTypeCompletor
           call_block_proc = ->(block_args, block_self_type) do
             scope.conditional do |s|
               params_table = node.block.locals.to_h { [_1.to_s, Types::NIL] }
+              if node.block.parameters.is_a?(Prism::ItParametersNode)
+                params_table['_1'] = block_args.first || Types::NIL
+              end
               table = { **params_table, Scope::BREAK_RESULT => nil, Scope::NEXT_RESULT => nil }
               block_scope = Scope.new s, table, self_type: block_self_type, trace_ivar: !block_self_type
               # TODO kwargs
@@ -267,8 +270,6 @@ module ReplTypeCompletor
                 assign_numbered_parameters node.block.parameters.maximum, block_scope, block_args, {}
               when Prism::BlockParametersNode
                 assign_parameters node.block.parameters.parameters, block_scope, block_args, {}
-              when Prism::ItParametersNode
-                scope['_1'] = block_args.first || Types::NIL
               end
               result = node.block.body ? evaluate(node.block.body, block_scope) : Types::NIL
               block_scope.merge_jumps
