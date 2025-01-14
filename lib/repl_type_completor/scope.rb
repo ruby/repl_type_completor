@@ -284,36 +284,19 @@ module ReplTypeCompletor
     end
 
     def instance_variables
-      self_singleton_types = self_type.types.grep(Types::SingletonType)
-      singleton_classes = self_type.types.grep(Types::InstanceType).map(&:klass).select(&:singleton_class?)
-      base_self = base_scope.self_object
-      self_instance_variables = singleton_classes.flat_map do |singleton_class|
-        if singleton_class.respond_to? :attached_object
-          Methods::OBJECT_INSTANCE_VARIABLES_METHOD.bind_call(singleton_class.attached_object).map(&:to_s)
-        elsif singleton_class == Methods::OBJECT_SINGLETON_CLASS_METHOD.bind_call(base_self)
-          Methods::OBJECT_INSTANCE_VARIABLES_METHOD.bind_call(base_self).map(&:to_s)
-        else
-          []
-        end
-      end
+      modules = self_type.types.grep(Types::SingletonType).map(&:module_or_class)
+      instances = self_type.types.grep(Types::InstanceType).filter_map(&:instances).flatten(1)
+      self_objects = modules + instances
       [
-        self_singleton_types.flat_map { _1.module_or_class.instance_variables.map(&:to_s) },
-        self_instance_variables || [],
+        self_objects.flat_map { Methods::OBJECT_INSTANCE_VARIABLES_METHOD.bind_call(_1).map(&:to_s) },
         table_instance_variables
-      ].inject(:|)
+      ].inject([], :|)
     end
 
     def self_instance_variable_get(name)
-      self_objects = self_type.types.grep(Types::SingletonType).map(&:module_or_class)
-      singleton_classes = self_type.types.grep(Types::InstanceType).map(&:klass).select(&:singleton_class?)
-      base_self = base_scope.self_object
-      singleton_classes.each do |singleton_class|
-        if singleton_class.respond_to? :attached_object
-          self_objects << singleton_class.attached_object
-        elsif singleton_class == base_self.singleton_class
-          self_objects << base_self
-        end
-      end
+      modules = self_type.types.grep(Types::SingletonType).map(&:module_or_class)
+      instances = self_type.types.grep(Types::InstanceType).filter_map(&:instances).flatten(1)
+      self_objects = modules + instances
       types = self_objects.map do |object|
         value = begin
           Methods::OBJECT_INSTANCE_VARIABLE_GET_METHOD.bind_call(object, name)
