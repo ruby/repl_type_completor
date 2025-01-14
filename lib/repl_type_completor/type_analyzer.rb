@@ -447,6 +447,10 @@ module ReplTypeCompletor
       Types::PROC
     end
 
+    def evaluate_shareable_constant_node(node, scope)
+      evaluate(node.write, scope)
+    end
+
     def evaluate_reference_write(node, scope)
       scope[node.name.to_s] = evaluate node.value, scope
     end

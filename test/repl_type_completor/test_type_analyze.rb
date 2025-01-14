@@ -642,6 +642,10 @@ module TestReplTypeCompletor
       assert_call('Array::A=1; Array::A&&=1.0; Array::A.', include: Float)
     end
 
+    def test_shareable_constant_value
+      assert_call("#shareable_constant_value:literal\nA=1; A.", include: Integer)
+    end
+
     def test_case_when
       assert_call('case x; when A; 1; when B; 1.0; end.', include: [Integer, Float, NilClass])
       assert_call('case x; when A; 1; when B; 1.0; else; 1r; end.', include: [Integer, Float, Rational], exclude: NilClass)
