@@ -17,8 +17,8 @@ module TestReplTypeCompletor
       assert_equal 'false', false_type.inspect
       assert_equal 'String', string_type.inspect
       assert_equal 'Array', ReplTypeCompletor::Types::InstanceType.new(Array).inspect
-      assert_equal 'true | false', true_or_false.inspect
-      assert_equal 'Array[Elem: true | false]', array_type.inspect
+      assert_equal 'false | true', true_or_false.inspect
+      assert_equal 'Array[Elem: false | true]', array_type.inspect
       assert_equal 'Array', array_type.inspect_without_params
       assert_equal 'Proc', ReplTypeCompletor::Types::PROC.inspect
       assert_equal 'Array.itself', ReplTypeCompletor::Types::SingletonType.new(Array).inspect
@@ -40,9 +40,11 @@ module TestReplTypeCompletor
       bo_value_hash_type = ReplTypeCompletor::Types.type_from_object({ x: bo })
 
       assert_equal Integer, int_type.klass
-      # Use singleton_class to autocomplete singleton methods
-      assert_equal obj.singleton_class, obj_type.klass
-      assert_equal Object.instance_method(:singleton_class).bind_call(bo), bo_type.klass
+      # Type contains actual instances to autocomplete singleton methods
+      assert_equal Object, obj_type.klass
+      assert_equal [obj], obj_type.instances
+      assert_equal BasicObject, bo_type.klass
+      assert_equal [bo], bo_type.instances
       # Array and Hash are special
       assert_equal Array, arr_type.klass
       assert_equal Array, bo_arr_type.klass
@@ -95,6 +97,22 @@ module TestReplTypeCompletor
       def bo.foobar; end
       type = ReplTypeCompletor::Types.type_from_object bo
       assert type.all_methods.include?(:foobar)
+    end
+
+    def test_params_lazily_expanded_on_recursive_type
+      deepest = [{ 1 => 2.0 }]
+      a = deepest
+      5.times { a = ['even', [:odd, a]] }
+      deepest << a
+      type = ReplTypeCompletor::Types.type_from_object a
+      assert_equal Array, type.klass
+      10.times do |i|
+        elem_type = type.params[:Elem]
+        expected = i.even? ? [Array, String] : [Array, Symbol]
+        assert_equal expected, elem_type.types.map(&:klass).sort_by(&:name)
+        type = elem_type.types.find { _1.klass == Array }
+      end
+      assert_equal 'Hash[K: Integer, V: Float]', type.params[:Elem].types.find { _1.klass == Hash }.inspect
     end
   end
 end
