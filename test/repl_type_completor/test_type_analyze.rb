@@ -337,12 +337,8 @@ module TestReplTypeCompletor
       assert_call('a, ((b=1).c, d) = 1; b.', include: Integer)
       assert_call('a, b[c=1] = 1; c.', include: Integer)
       assert_call('a, b[*(c=1)] = 1; c.', include: Integer)
-      assert_call('a, b[**(c=1)] = 1; c.', include: Integer)
-      assert_call('a, b[&(c=1)] = 1; c.', include: Integer)
       assert_call('a, b[] = 1; a.', include: Integer)
       assert_call('def f(*); a, b[*] = 1; a.', include: Integer)
-      assert_call('def f(&); a, b[&] = 1; a.', include: Integer)
-      assert_call('def f(**); a, b[**] = 1; a.', include: Integer)
       # incomplete massign
       assert_analyze_type('a,b', :lvar_or_method, 'b')
       assert_call('(a=1).b, a.a', include: Integer)
@@ -518,9 +514,6 @@ module TestReplTypeCompletor
       assert_call('END{1.', include: Integer)
       # MatchWrite
       assert_call('a=1; /(?<a>)/=~b; a.', include: [String, NilClass], exclude: Integer)
-      # OperatorWrite with block `a[&b]+=c`
-      assert_call('a=[1]; (a[0,&:to_a]+=1.0).', include: Float)
-      assert_call('a=[1]; (a[0,&b]+=1.0).', include: Float)
     end
 
     def test_hash

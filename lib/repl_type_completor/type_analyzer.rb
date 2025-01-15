@@ -824,7 +824,7 @@ module ReplTypeCompletor
     def evaluate_call_node_arguments(call_node, scope)
       # call_node.arguments is Prism::ArgumentsNode
       arguments = call_node.arguments&.arguments&.dup || []
-      block_arg = call_node.block.expression if call_node.block.is_a?(Prism::BlockArgumentNode)
+      block_arg = call_node.block.expression if call_node.respond_to?(:block) && call_node.block.is_a?(Prism::BlockArgumentNode)
       kwargs = arguments.pop.elements if arguments.last.is_a?(Prism::KeywordHashNode)
       args_types = arguments.map do |arg|
         case arg
@@ -1100,7 +1100,6 @@ module ReplTypeCompletor
             end
           end
         end
-        evaluate node.block.expression, scope if node.block&.expression
         receiver
       when Prism::SplatNode
         evaluate_multi_write_receiver node.expression, scope, evaluated_receivers if node.expression
