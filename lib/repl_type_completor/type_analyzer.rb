@@ -269,7 +269,9 @@ module ReplTypeCompletor
               when Prism::NumberedParametersNode
                 assign_numbered_parameters node.block.parameters.maximum, block_scope, block_args, {}
               when Prism::BlockParametersNode
-                assign_parameters node.block.parameters.parameters, block_scope, block_args, {}
+                if node.block.parameters.parameters
+                  assign_parameters node.block.parameters.parameters, block_scope, block_args, {}
+                end
               end
               result = node.block.body ? evaluate(node.block.body, block_scope) : Types::NIL
               block_scope.merge_jumps
