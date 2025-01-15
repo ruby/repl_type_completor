@@ -183,6 +183,20 @@ module TestReplTypeCompletor
       end
     end
 
+    def test_anonymous_class
+      bind = eval('c = Struct.new(:foobar); o = c.new; binding')
+      assert_completion('c.', binding: bind, include: ['ancestors', 'singleton_class?', 'superclass'])
+      assert_completion('o.', binding: bind, include: ['foobar', 'each_pair'])
+      assert_doc_namespace('c.superclass', 'Struct.superclass', binding: bind)
+      assert_doc_namespace('o.each', 'Struct#each', binding: bind)
+    end
+
+    def test_anonymous_module
+      bind = eval('m = Module.new; binding')
+      assert_completion('m.', binding: bind, include: ['ancestors', 'singleton_class?'], exclude: 'superclass')
+      assert_doc_namespace('m.ancestors', 'Module.ancestors', binding: bind)
+    end
+
     DEPRECATED_CONST = 1
     deprecate_constant :DEPRECATED_CONST
     def test_deprecated_const_without_warning

@@ -53,8 +53,12 @@ module ReplTypeCompletor
     end
 
     def self.class_name_of(klass)
-      klass = klass.superclass if klass.singleton_class?
-      Methods::MODULE_NAME_METHOD.bind_call klass
+      while true
+        name = Methods::MODULE_NAME_METHOD.bind_call klass
+        return name if name
+
+        klass = klass.superclass
+      end
     end
 
     if RBS::TypeName.respond_to?(:parse) # RBS >= 3.8.0
@@ -69,9 +73,11 @@ module ReplTypeCompletor
     end
 
     def self.rbs_search_method(klass, method_name, singleton)
+      return unless rbs_builder
+
       klass.ancestors.each do |ancestor|
-        name = class_name_of ancestor
-        next unless name && rbs_builder
+        next unless (name = Methods::MODULE_NAME_METHOD.bind_call(ancestor))
+
         type_name = rbs_absolute_type_name(name)
         definition = (singleton ? rbs_builder.build_singleton(type_name) : rbs_builder.build_instance(type_name)) rescue nil
         method = definition.methods[method_name] if definition
@@ -219,9 +225,9 @@ module ReplTypeCompletor
       def nillable?() = (@klass == NilClass)
       def nonnillable() = self
       def rbs_methods
-        name = Types.class_name_of(@klass)
-        return {} unless name && Types.rbs_builder
+        return {} unless Types.rbs_builder
 
+        name = Types.class_name_of(@klass)
         type_name = Types.rbs_absolute_type_name(name)
         Types.rbs_builder.build_instance(type_name).methods rescue {}
       end
