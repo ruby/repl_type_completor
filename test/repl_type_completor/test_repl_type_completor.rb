@@ -197,6 +197,26 @@ module TestReplTypeCompletor
       assert_doc_namespace('m.ancestors', 'Module.ancestors', binding: bind)
     end
 
+    def test_array_singleton_method
+      assert_completion('$LOAD_PATH.', include: 'resolve_feature_path')
+      assert_completion('$LOAD_PATH.itself.', include: 'resolve_feature_path')
+      assert_completion('[$LOAD_PATH].first.', include: 'resolve_feature_path')
+      assert_completion('{ x: $LOAD_PATH }.each_value { _1.', include: 'resolve_feature_path')
+    end
+
+    def test_recursive_array
+      a = Object.new
+      b = Object.new
+      def a.foobar; end
+      def b.foobaz; end
+      arr = [a, [b]]
+      arr[1] << arr
+      bind = binding
+      assert_completion('arr.sample.foo', binding: bind, include: 'bar', exclude: 'baz')
+      assert_completion('arr.sample.sample.foo', binding: bind, include: 'baz', exclude: 'bar')
+      assert_completion('arr.sample.sample.sample.foo', binding: bind, include: 'bar', exclude: 'baz')
+    end
+
     DEPRECATED_CONST = 1
     deprecate_constant :DEPRECATED_CONST
     def test_deprecated_const_without_warning

@@ -33,16 +33,40 @@ module TestReplTypeCompletor
       assert_equal token, result_token if token
     end
 
+    ActualInstance = Struct.new(:instance) do
+      def to_s() = instance.inspect
+      undef to_a # to suppress [*obj] being splat to array
+    end
+
+    def instance(instance)
+      ActualInstance.new(instance)
+    end
+
     def assert_call(code, include: nil, exclude: nil, binding: nil)
       raise ArgumentError if include.nil? && exclude.nil?
 
       result = analyze(code.strip, binding: binding)
       type = result[2] if result[0] == :call
-      klasses = type.types.flat_map do
-        _1.klass.singleton_class? ? [_1.klass.superclass, _1.klass] : _1.klass
+      instance_types = type.types.grep(ReplTypeCompletor::Types::InstanceType)
+      singleton_types = type.types.grep(ReplTypeCompletor::Types::SingletonType)
+      instances = {}.compare_by_identity
+      singleton_types.each { instances[_1.class_or_module] = true }
+      instance_types.each do |t|
+        t.instances&.each { instances[_1] = true }
       end
-      assert ([*include] - klasses).empty?, "Expected #{klasses} to include #{include}" if include
-      assert (klasses & [*exclude]).empty?, "Expected #{klasses} not to include #{exclude}" if exclude
+      classes = instance_types.to_h { [_1.klass, true] }
+
+      match = ->(query) do
+        case query
+        in ActualInstance
+          instances.key?(query.instance)
+        in Class
+          classes.key?(query)
+        end
+      end
+
+      assert [*include].all?(&match), "Expected #{classes.keys} #{instances.keys} to include #{include}"
+      refute [*exclude].any?(&match), "Expected #{classes.keys} #{instances.keys} not to include #{exclude}" if exclude
     end
 
     def test_lvar_ivar_gvar_cvar
@@ -89,8 +113,8 @@ module TestReplTypeCompletor
           binding
         end
       RUBY
-      assert_call('STDIN.', include: STDIN.singleton_class)
-      assert_call('$stdin.', include: $stdin.singleton_class)
+      assert_call('STDIN.', include: instance(STDIN))
+      assert_call('$stdin.', include: instance($stdin))
       assert_call('@ivar.', include: Symbol, binding: bind)
       assert_call('@@cvar.', include: String, binding: bind)
       lbind = eval('lvar = 1; binding')
@@ -127,15 +151,15 @@ module TestReplTypeCompletor
 
     def test_lvar_singleton_method
       a = 1
-      b = +''
+      b = ''
       c = Object.new
       d = [a, b, c]
       binding = Kernel.binding
       assert_call('a.', include: Integer, exclude: String, binding: binding)
-      assert_call('b.', include: b.singleton_class, exclude: [Integer, Object], binding: binding)
-      assert_call('c.', include: c.singleton_class, exclude: [Integer, String], binding: binding)
+      assert_call('b.', include: instance(b), exclude: [Integer, Object], binding: binding)
+      assert_call('c.', include: instance(c), exclude: [Integer, String], binding: binding)
       assert_call('d.', include: d.class, exclude: [Integer, String, Object], binding: binding)
-      assert_call('d.sample.', include: [Integer, String, Object], exclude: [b.singleton_class, c.singleton_class], binding: binding)
+      assert_call('d.sample.', include: [Integer, instance(b), instance(c)], binding: binding)
     end
 
     def test_local_variable_assign
@@ -401,11 +425,11 @@ module TestReplTypeCompletor
       assert_call('self.', include: [Integer], binding: integer_binding)
       string = +''
       string_binding = string.instance_eval { Kernel.binding }
-      assert_call('self.', include: [string.singleton_class], binding: string_binding)
+      assert_call('self.', include: instance(string), binding: string_binding)
       object = Object.new
       object.instance_eval { @int = 1; @string = string }
       object_binding = object.instance_eval { Kernel.binding }
-      assert_call('self.', include: [object.singleton_class], binding: object_binding)
+      assert_call('self.', include: instance(object), binding: object_binding)
       assert_call('@int.', include: [Integer], binding: object_binding)
       assert_call('@string.', include: [String], binding: object_binding)
     end
