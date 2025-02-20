@@ -406,7 +406,8 @@ module ReplTypeCompletor
             OBJECT
           end
         end
-      when RBS::Types::Union
+      when RBS::Types::Union, RBS::Types::Intersection
+        # Intersection is unsupported. fallback to union type
         UnionType[*return_type.types.map { from_rbs_type _1, self_type, extra_vars }]
       when RBS::Types::Proc
         PROC
@@ -455,6 +456,8 @@ module ReplTypeCompletor
           params = names.map.with_index { [_1, args[_2] || OBJECT] }.to_h
         end
         InstanceType.new klass, params || {}
+      else
+        OBJECT
       end
     end
 

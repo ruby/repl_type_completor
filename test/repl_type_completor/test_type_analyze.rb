@@ -744,6 +744,11 @@ module TestReplTypeCompletor
       assert_call('proc{}.call; 1.', include: Integer)
     end
 
+    def test_rbs_intersection_type_fallback
+      # One of the overloads of Kernel.Rational(a, b) has `Numeric & _RationalDiv[T]`
+      assert_call('Rational(a,b).', include: Rational)
+    end
+
     def test_rbs_instance_type
       assert_call('Thread.start{}.', include: Thread)
       assert_call('"".encode("utf-8").', include: String)
