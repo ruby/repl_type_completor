@@ -364,6 +364,9 @@ module ReplTypeCompletor
         end
       when RBS::Types::Union
         UnionType[*return_type.types.map { from_rbs_type _1, self_type, extra_vars }]
+      when RBS::Types::Intersection
+        # Unsupported, fallback to union type
+        UnionType[*return_type.types.map { from_rbs_type _1, self_type, extra_vars }]
       when RBS::Types::Proc
         PROC
       when RBS::Types::Tuple
@@ -411,6 +414,8 @@ module ReplTypeCompletor
           params = names.map.with_index { [_1, args[_2] || OBJECT] }.to_h
         end
         InstanceType.new klass, params || {}
+      else
+        OBJECT
       end
     end
 
