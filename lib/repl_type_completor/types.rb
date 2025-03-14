@@ -177,21 +177,20 @@ module ReplTypeCompletor
     def self.type_from_object(object)
       case object
       when Array
-        InstanceType.new Array, { Elem: union_type_from_objects(object) }
+        InstanceType.new Array, nil, [object]
       when Hash
-        InstanceType.new Hash, { K: union_type_from_objects(object.keys), V: union_type_from_objects(object.values) }
+        InstanceType.new Hash, nil, [object]
       when Module
         SingletonType.new object
       else
-        klass = Methods::OBJECT_SINGLETON_CLASS_METHOD.bind_call(object) rescue Methods::OBJECT_CLASS_METHOD.bind_call(object)
-        InstanceType.new klass
+        InstanceType.new Methods::OBJECT_CLASS_METHOD.bind_call(object), nil, [object]
       end
     end
 
     def self.union_type_from_objects(objects)
-      values = objects.size <= OBJECT_TO_TYPE_SAMPLE_SIZE ? objects : objects.sample(OBJECT_TO_TYPE_SAMPLE_SIZE)
-      klasses = values.map { Methods::OBJECT_CLASS_METHOD.bind_call(_1) }
-      UnionType[*klasses.uniq.map { InstanceType.new _1 }]
+      instanes = objects.size <= OBJECT_TO_TYPE_SAMPLE_SIZE ? objects : objects.sample(OBJECT_TO_TYPE_SAMPLE_SIZE)
+      class_instanes = instanes.group_by { Methods::OBJECT_CLASS_METHOD.bind_call(_1) }
+      UnionType[*class_instanes.map { InstanceType.new _1, nil, _2 }]
     end
 
     class SingletonType
@@ -212,18 +211,59 @@ module ReplTypeCompletor
     end
 
     class InstanceType
-      attr_reader :klass, :params
-      def initialize(klass, params = {})
+      attr_reader :klass, :raw_params, :instances
+      def initialize(klass, params = nil, instances = nil)
         @klass = klass
-        @params = params
+        @raw_params = params if params && !params.empty?
+        @instances = instances if instances && !instances.empty?
       end
+
       def transform() = yield(self)
-      def methods() = rbs_methods.select { _2.public? }.keys | @klass.instance_methods
-      def all_methods() = rbs_methods.keys | @klass.instance_methods | @klass.private_instance_methods
+      def methods() = rbs_methods.select { _2.public? }.keys | @klass.instance_methods | singleton_methods
+      def all_methods() = rbs_methods.keys | @klass.instance_methods | @klass.private_instance_methods | singleton_methods | instances_private_methods
+
+      def singleton_methods
+        return [] unless @instances
+        @singleton_methods ||= @instances.map do |instance|
+          Methods::OBJECT_SINGLETON_METHODS_METHOD.bind_call(instance)
+        end.inject(:|)
+      end
+
+      def instances_private_methods
+        return [] unless @instances
+        @private_instances_methods ||= @instances.map do |instance|
+          Methods::OBJECT_PRIVATE_METHODS_METHOD.bind_call(instance, false)
+        end.inject(:|)
+      end
+
+      def params
+        @params ||= expand_params
+      end
+
+      def expand_params
+        params = @raw_params || {}
+        return params unless @instances
+
+        if @klass == Array
+          type = Types.union_type_from_objects(@instances.flatten(1))
+          { Elem: UnionType[*params[:Elem], *type] }
+        elsif @klass == Hash
+          key = Types.union_type_from_objects(@instances.map(&:keys).flatten(1))
+          value = Types.union_type_from_objects(@instances.map(&:values).flatten(1))
+          {
+            K: UnionType[*params[:K], key],
+            V: UnionType[*params[:V], value]
+          }
+        else
+          params
+        end
+      end
+
       def constants() = []
       def types() = [self]
       def nillable?() = (@klass == NilClass)
       def nonnillable() = self
+
       def rbs_methods
         return {} unless Types.rbs_builder
 
@@ -231,6 +271,7 @@ module ReplTypeCompletor
         type_name = Types.rbs_absolute_type_name(name)
         Types.rbs_builder.build_instance(type_name).methods rescue {}
       end
+
       def inspect
         if params.empty?
           inspect_without_params
@@ -239,6 +280,7 @@ module ReplTypeCompletor
           "#{inspect_without_params}#{params_string}"
         end
       end
+
       def inspect_without_params
         if klass == NilClass
           'nil'
@@ -247,7 +289,7 @@ module ReplTypeCompletor
         elsif klass == FalseClass
           'false'
         else
-          klass.singleton_class? ? klass.superclass.to_s : klass.to_s
+          klass.to_s
         end
       end
     end
@@ -275,24 +317,26 @@ module ReplTypeCompletor
 
       def initialize(*types)
         @types = []
-        singletons = []
-        instances = {}
+        singleton_types = []
+        instance_types = {}
         collect = -> type do
           case type
           in UnionType
             type.types.each(&collect)
           in InstanceType
-            params = (instances[type.klass] ||= {})
-            type.params.each do |k, v|
+            params, instances = (instance_types[type.klass] ||= [{}, []])
+            type.instances&.each { instances << _1 }
+            type.raw_params&.each do |k, v|
               (params[k] ||= []) << v
             end
           in SingletonType
-            singletons << type
+            singleton_types << type
           end
         end
         types.each(&collect)
-        @types = singletons.uniq + instances.map do |klass, params|
-          InstanceType.new(klass, params.transform_values { |v| UnionType[*v] })
+        @types = singleton_types.uniq + instance_types.map do |klass, (params, instances)|
+          params = params.transform_values { |v| UnionType[*v] }
+          InstanceType.new(klass, params, instances)
         end
       end
 
@@ -322,7 +366,7 @@ module ReplTypeCompletor
       def methods() = @types.flat_map(&:methods).uniq
       def all_methods() = @types.flat_map(&:all_methods).uniq
       def constants() = @types.flat_map(&:constants).uniq
-      def inspect() = @types.map(&:inspect).join(' | ')
+      def inspect() = @types.map(&:inspect).sort.join(' | ')
     end
 
     BOOLEAN = UnionType[TRUE, FALSE]
