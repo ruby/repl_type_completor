@@ -273,7 +273,9 @@ module ReplTypeCompletor
       end
 
       def inspect
-        if params.empty?
+        if !@params && (@klass == Array || @klass == Hash) && @instances
+          "#{inspect_without_params}[unresolved]"
+        elsif params.empty?
           inspect_without_params
         else
           params_string = "[#{params.map { "#{_1}: #{_2.inspect}" }.join(', ')}]"

@@ -55,8 +55,10 @@ module TestReplTypeCompletor
       assert_equal BasicObject, bo_key_hash_type.params[:K].klass
       assert_equal BasicObject, bo_value_hash_type.params[:V].klass
       assert_equal 'Object', obj_type.inspect
-      assert_equal 'Array[Elem: Integer | String]', arr_type.inspect
-      assert_equal 'Hash[K: String, V: Symbol]', hash_type.inspect
+      assert_equal 'Array[unresolved]', arr_type.inspect
+      assert_equal 'Array[Elem: Integer | String]', arr_type.tap(&:params).inspect
+      assert_equal 'Hash[unresolved]', hash_type.inspect
+      assert_equal 'Hash[K: String, V: Symbol]', hash_type.tap(&:params).inspect
       assert_equal 'Array.itself', ReplTypeCompletor::Types.type_from_object(Array).inspect
       assert_equal 'ReplTypeCompletor.itself', ReplTypeCompletor::Types.type_from_object(ReplTypeCompletor).inspect
     end
@@ -112,7 +114,17 @@ module TestReplTypeCompletor
         assert_equal expected, elem_type.types.map(&:klass).sort_by(&:name)
         type = elem_type.types.find { _1.klass == Array }
       end
-      assert_equal 'Hash[K: Integer, V: Float]', type.params[:Elem].types.find { _1.klass == Hash }.inspect
+      hash_type = type.params[:Elem].types.find { _1.klass == Hash }
+      assert_equal 'Hash[unresolved]', hash_type.inspect
+      assert_equal 'Hash[K: Integer, V: Float]', hash_type.tap(&:params).inspect
+    end
+
+    def test_infinite_nested_type_inspect
+      a = []
+      a << a
+      type = ReplTypeCompletor::Types.type_from_object a
+      assert_equal 'Array[unresolved]', type.inspect
+      assert_equal 'Array[Elem: Array[unresolved]]', type.tap(&:params).inspect
     end
   end
 end
