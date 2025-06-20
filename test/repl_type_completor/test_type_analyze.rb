@@ -286,6 +286,48 @@ module TestReplTypeCompletor
       assert_call('2.times{}.', include: Integer, exclude: Enumerator)
     end
 
+    def test_accessor_method
+      a = Object.new
+      b = Object.new
+      c = Object.new
+      d = Object.new
+      bo = BasicObject.new
+      def a.foo; end
+      def b.foo; end
+      def c.foo; end
+      def d.foo; end
+      def bo.foo; @foo ||= {}; end
+      bo.foo
+      a.instance_variable_set(:@foo, 1)
+      b.instance_variable_set(:@foo, 'a')
+      c.instance_variable_set(:@foo, nil)
+      d.instance_variable_set(:@bar, :a)
+      assert_call('a.foo.', include: Integer, binding: binding)
+      assert_call('b.foo.', include: String, binding: binding)
+      assert_call('c.foo.', include: NilClass, binding: binding)
+      assert_call('bo.foo.', include: Hash, binding: binding)
+      assert_call('[a, b, bo].sample.foo.', include: [Integer, String, Hash], binding: binding)
+      assert_call('[a, b, c].sample.foo.', include: [Integer, String, NilClass], binding: binding)
+      assert_call('[a, b, d].sample.foo.', include: [Integer, String], exclude: NilClass, binding: binding)
+      # Not sure if this is a good idea, but method_missing(:bar) might return @bar in this case.
+      assert_call('d.bar.', include: Symbol, binding: binding)
+    end
+
+    def test_accessor_method_with_class_module
+      AnalyzeTest.instance_variable_set(:@foo, 1)
+      AnalyzeTest.instance_variable_set(:@bar, Symbol)
+      o = Object.new
+      o.instance_variable_set(:@foo, String)
+      o.instance_variable_set(:@bar, Math)
+      assert_call('AnalyzeTest.foo.', include: Integer, binding: binding)
+      assert_call('AnalyzeTest.bar.all_symbols.', include: Array, binding: binding)
+      assert_call('o.foo.new.', include: String, binding: binding)
+      assert_call('o.bar.sin(1).', include: Float, binding: binding)
+    ensure
+      AnalyzeTest.remove_instance_variable(:@foo)
+      AnalyzeTest.remove_instance_variable(:@bar)
+    end
+
     def test_interface_match_var
       assert_call('([1]+[:a]+["a"]).sample.', include: [Integer, String, Symbol])
     end

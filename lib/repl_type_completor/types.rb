@@ -105,6 +105,28 @@ module ReplTypeCompletor
       UnionType[*types]
     end
 
+    def self.accessor_method_return_type(type, method_name)
+      return unless method_name.match?(/\A[a-z_][a-z_0-9]*\z/)
+
+      ivar_name = :"@#{method_name}"
+      instances = type.types.filter_map do |t|
+        case t
+        in SingletonType
+          t.module_or_class
+        in InstanceType
+          t.instances
+        end
+      end.flatten
+      instances = instances.sample(OBJECT_TO_TYPE_SAMPLE_SIZE) if instances.size > OBJECT_TO_TYPE_SAMPLE_SIZE
+      objects = []
+      instances.each do |instance|
+        if Methods::OBJECT_INSTANCE_VARIABLE_DEFINED_METHOD.bind_call(instance, ivar_name)
+          objects << Methods::OBJECT_INSTANCE_VARIABLE_GET_METHOD.bind_call(instance, ivar_name)
+        end
+      end
+      union_type_from_objects(objects) unless objects.empty?
+    end
+
     def self.rbs_methods(type, method_name, args_types, kwargs_type, has_block)
       return [] unless rbs_builder
 
@@ -188,9 +210,10 @@ module ReplTypeCompletor
     end
 
     def self.union_type_from_objects(objects)
-      instanes = objects.size <= OBJECT_TO_TYPE_SAMPLE_SIZE ? objects : objects.sample(OBJECT_TO_TYPE_SAMPLE_SIZE)
-      class_instanes = instanes.group_by { Methods::OBJECT_CLASS_METHOD.bind_call(_1) }
-      UnionType[*class_instanes.map { InstanceType.new _1, nil, _2 }]
+      instances = objects.size <= OBJECT_TO_TYPE_SAMPLE_SIZE ? objects : objects.sample(OBJECT_TO_TYPE_SAMPLE_SIZE)
+      modules, instances = instances.partition { Module === _1 }
+      class_instances = instances.group_by { Methods::OBJECT_CLASS_METHOD.bind_call(_1) }
+      UnionType[*class_instances.map { InstanceType.new _1, nil, _2 }, *modules.uniq.map { SingletonType.new _1 }]
     end
 
     class SingletonType

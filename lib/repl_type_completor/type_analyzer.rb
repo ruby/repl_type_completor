@@ -1179,6 +1179,12 @@ module ReplTypeCompletor
           end
         end
       end
+
+      if types.empty? && args.empty? && !kwargs && !block
+        t = Types.accessor_method_return_type(receiver, method_name)
+        types << t if t
+      end
+
       scope&.terminate if terminates && breaks.empty?
       Types::UnionType[*types, *breaks]
     end
