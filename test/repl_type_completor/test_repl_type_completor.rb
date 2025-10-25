@@ -218,6 +218,14 @@ module TestReplTypeCompletor
       assert_completion('arr.sample.sample.sample.foo', binding: bind, include: 'bar', exclude: 'baz')
     end
 
+    def test_incompatible_encoding_method
+      a = Object.new
+      a.define_singleton_method(:abc){}
+      a.define_singleton_method("\u{3042}".encode('UTF-16')){}
+      bind = binding
+      assert_completion('a.a', include: 'bc', binding: bind)
+    end
+
     DEPRECATED_CONST = 1
     deprecate_constant :DEPRECATED_CONST
     def test_deprecated_const_without_warning

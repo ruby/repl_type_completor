@@ -72,7 +72,11 @@ module ReplTypeCompletor
       else
         []
       end
-      candidates.select { _1.start_with?(name) }.map { _1[name.size..] }
+
+      candidates.filter_map do
+        _1[name.size..] if _1.start_with?(name)
+      rescue EncodingError
+      end
     rescue Exception => e
       ReplTypeCompletor.handle_exception(e)
       []
