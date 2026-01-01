@@ -23,5 +23,6 @@ if ENV['GEMFILE_RBS_VERSION']
     gem 'rbs', github: 'ruby/rbs'
   else
     gem 'rbs', ENV['GEMFILE_RBS_VERSION']
+    gem 'logger' # ruby >= 4.0 && rbs <= 3.5
   end
 end
