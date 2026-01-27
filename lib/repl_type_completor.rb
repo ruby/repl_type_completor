@@ -69,7 +69,7 @@ module ReplTypeCompletor
 
       case target_node
       when Prism::StringNode
-        return unless target_node.closing&.empty?
+        return if target_node.opening == "?" || (target_node.closing_loc && !target_node.closing.empty?)
 
         call_node, args_node = parents.last(2)
         return unless call_node.is_a?(Prism::CallNode) && call_node.receiver.nil?
