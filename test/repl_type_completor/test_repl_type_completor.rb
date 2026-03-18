@@ -58,6 +58,32 @@ module TestReplTypeCompletor
       assert_doc_namespace('[1].map(&:abs', 'Integer#abs')
     end
 
+    def test_hash_aref
+      hash1 = { key1: 1, other_key1: 2, 'string_key1' => 3 }
+      hash2 = { key2: 1, other_key2: 2, 'string_key2' => 3 }
+      never_hash = { key3: 1, other_key3: 2, 'string_key3' => 3 }
+      exclude_keys = never_hash.keys.map(&:to_s)
+      array = [hash1, hash2, 1, 'a']
+      symbol_keys = array.grep(Hash).flat_map(&:keys).grep(Symbol).map(&:to_s)
+      string_keys = array.grep(Hash).flat_map(&:keys).grep(String)
+      bind = binding
+      assert_completion('hash1[:', binding: bind, include: hash1.keys.grep(Symbol).map(&:to_s), exclude: hash2.keys.map(&:to_s))
+      assert_completion('hash1["', binding: bind, include: hash1.keys.grep(String), exclude: hash2.keys.map(&:to_s))
+      assert_completion('hash1[:ke', binding: bind, include: 'y1', exclude: 'y3')
+      assert_completion('hash1["st', binding: bind, include: 'ring_key1', exclude: 'ring_key2')
+      assert_completion('array.sample[:', binding: bind, include: symbol_keys, exclude: exclude_keys + string_keys)
+      assert_completion('array.sample["', binding: bind, include: string_keys, exclude: exclude_keys + symbol_keys)
+      assert_completion('a = hash1; a = hash2 if cond; a[:', binding: bind, include: symbol_keys, exclude: exclude_keys + string_keys)
+      assert_completion('a = hash1; a = hash2 if cond; a["', binding: bind, include: string_keys, exclude: exclude_keys + symbol_keys)
+
+      # Fallback to all symbols for unknown receiver or hash with unknown keys
+      assert_completion('unknown[:', exclude: ['key1', 'key2', 'key3']) # no candidates if name is empty
+      assert_completion('unknown[:other_k', include: ['ey1', 'ey2', 'ey3'])
+      assert_completion('unknown["other_k', exclude: ['ey1', 'ey2', 'ey3']) # no candidates for string keys
+      assert_completion('Class[:other_k', include: ['ey1', 'ey2', 'ey3'])
+      assert_completion('hash1.slice(unknown)[:other_k', include: ['ey1', 'ey2', 'ey3'])
+    end
+
     def test_symbol
       prefix = ':test_com'
       sym = :test_completion_symbol

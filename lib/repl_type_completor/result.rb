@@ -65,6 +65,19 @@ module ReplTypeCompletor
         scope.global_variables
       in [:symbol, name]
         filter_symbol_candidates(Symbol.all_symbols, name, limit: 100)
+      in [:aref, key_type, name, receiver_type]
+        key_type = key_type == :string ? String : Symbol
+        keys = receiver_type.types.grep(Types::InstanceType).select do |t|
+          Hash == t.klass
+        end.flat_map do |t|
+          t.instances.flat_map(&:keys).grep(key_type).uniq.sort
+        end
+        if key_type == Symbol
+          keys = Symbol.all_symbols if keys.empty? && name.size >= 1
+          filter_symbol_candidates(keys, name, limit: 100)
+        else
+          keys.select { _1.start_with?(name) }.sort
+        end
       in [:call, name, type, self_call]
         (self_call ? type.all_methods : type.methods).map(&:to_s) - HIDDEN_METHODS
       in [:lvar_or_method, name, scope]

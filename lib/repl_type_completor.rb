@@ -59,6 +59,15 @@ module ReplTypeCompletor
 
     private
 
+    # Checks if `*parents, target_node` returned by `find_target` is a call with a single argument.
+    # returns CallNode or nil.
+    def single_arg_call_node(parents)
+      call_node, args_node = parents.last(2)
+      if call_node.is_a?(Prism::CallNode) && args_node.is_a?(Prism::ArgumentsNode) && args_node.arguments.size == 1
+        call_node
+      end
+    end
+
     def analyze_code(code, binding = Object::TOPLEVEL_BINDING)
       ast = Prism.parse(code, scopes: [binding.local_variables]).value
       *parents, target_node = find_target ast, code.bytesize
@@ -71,12 +80,12 @@ module ReplTypeCompletor
       when Prism::StringNode
         return if target_node.opening == "?" || (target_node.closing_loc && !target_node.closing.empty?)
 
-        call_node, args_node = parents.last(2)
-        return unless call_node.is_a?(Prism::CallNode) && call_node.receiver.nil?
-        return unless args_node.is_a?(Prism::ArgumentsNode) && args_node.arguments.size == 1
-
-        if call_node.name == :require || call_node.name == :require_relative
+        call_node = single_arg_call_node(parents) # require("target") or require_relative("target")
+        if call_node.receiver.nil? && (call_node.name == :require || call_node.name == :require_relative)
           [call_node.name, target_node.content]
+        elsif call_node.receiver && call_node.name == :[] # object["target"]
+          receiver_type, _scope = calculate_type_scope.call call_node.receiver
+          [:aref, :string, target_node.content, receiver_type]
         end
       when Prism::SymbolNode
         return unless !target_node.closing || target_node.closing.empty?
@@ -85,6 +94,9 @@ module ReplTypeCompletor
         if parents.last.is_a? Prism::BlockArgumentNode # method(&:target)
           receiver_type, _scope = calculate_type_scope.call target_node
           [:call, name, receiver_type, false]
+        elsif (call_node = single_arg_call_node(parents)) && call_node.receiver && call_node.name == :[] # object[:target]
+          receiver_type, _scope = calculate_type_scope.call call_node.receiver
+          [:aref, :symbol, name, receiver_type]
         else
           [:symbol, name] unless name.empty?
         end
