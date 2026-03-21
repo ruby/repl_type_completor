@@ -821,6 +821,10 @@ module ReplTypeCompletor
     def evaluate_undef_node(_node, _scope) = Types::NIL
     def evaluate_missing_node(_node, _scope) = Types::NIL
 
+    def evaluate_error_recovery_node(node, scope)
+      node.unexpected ? evaluate(node.unexpected, scope) : Types::NIL
+    end
+
     def evaluate_call_node_arguments(call_node, scope)
       # call_node.arguments is Prism::ArgumentsNode
       arguments = call_node.arguments&.arguments&.dup || []
