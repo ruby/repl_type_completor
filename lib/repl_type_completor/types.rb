@@ -216,6 +216,13 @@ module ReplTypeCompletor
       UnionType[*class_instances.map { InstanceType.new _1, nil, _2 }, *modules.uniq.map { SingletonType.new _1 }]
     end
 
+    def self.union_type_from_objects_list(objects_list)
+      objects = objects_list.flat_map do |objects|
+        objects.size < OBJECT_TO_TYPE_SAMPLE_SIZE ? objects : objects.sample(OBJECT_TO_TYPE_SAMPLE_SIZE)
+      end
+      union_type_from_objects(objects)
+    end
+
     class SingletonType
       attr_reader :module_or_class
       def initialize(module_or_class)
@@ -268,11 +275,11 @@ module ReplTypeCompletor
         return params unless @instances
 
         if @klass == Array
-          type = Types.union_type_from_objects(@instances.flatten(1))
+          type = Types.union_type_from_objects_list(@instances)
           { Elem: UnionType[*params[:Elem], *type] }
         elsif @klass == Hash
-          key = Types.union_type_from_objects(@instances.map(&:keys).flatten(1))
-          value = Types.union_type_from_objects(@instances.map(&:values).flatten(1))
+          key = Types.union_type_from_objects_list(@instances.map(&:keys))
+          value = Types.union_type_from_objects_list(@instances.map(&:values))
           {
             K: UnionType[*params[:K], key],
             V: UnionType[*params[:V], value]
