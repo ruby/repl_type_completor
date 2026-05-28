@@ -52,6 +52,25 @@ module ReplTypeCompletor
       nil
     end
 
+    def self.array_elem_type_param
+      (@array_elem_type_param ||= _class_type_params(Array)&.first) || :E
+    end
+
+    def self.hash_type_params
+      (@hash_type_params ||= _class_type_params(Hash)) || [:K, :V]
+    end
+
+    def self.hash_key_type_param = hash_type_params&.first
+
+    def self.hash_value_type_param = hash_type_params&.last
+
+    def self._class_type_params(klass)
+      return unless rbs_builder
+
+      type_name = rbs_absolute_type_name(class_name_of(klass))
+      rbs_builder.build_instance(type_name).type_params
+    end
+
     def self.class_name_of(klass)
       while true
         name = Methods::MODULE_NAME_METHOD.bind_call klass
@@ -156,8 +175,7 @@ module ReplTypeCompletor
           keyrest = method_type.type.rest_keywords
           args = args_types
           if kwargs_type&.any? && keyreqs.empty? && keyopts.empty? && keyrest.nil?
-            kw_value_type = UnionType[*kwargs_type.values]
-            args += [InstanceType.new(Hash, K: SYMBOL, V: kw_value_type)]
+            args += [InstanceType.hash_with_params(Types::SYMBOL, UnionType[*kwargs_type.values])]
           end
           if has_splat
             score += 1 if args.count(&:itself) <= reqs.size + opts.size + trailings.size
@@ -276,13 +294,13 @@ module ReplTypeCompletor
 
         if @klass == Array
           type = Types.union_type_from_objects_list(@instances)
-          { Elem: UnionType[*params[:Elem], *type] }
+          { Types.array_elem_type_param => UnionType[*params[Types.array_elem_type_param], *type] }
         elsif @klass == Hash
           key = Types.union_type_from_objects_list(@instances.map(&:keys))
           value = Types.union_type_from_objects_list(@instances.map(&:values))
           {
-            K: UnionType[*params[:K], key],
-            V: UnionType[*params[:V], value]
+            Types.hash_key_type_param => UnionType[*params[Types.hash_key_type_param], key],
+            Types.hash_value_type_param => UnionType[*params[Types.hash_value_type_param], value]
           }
         else
           params
@@ -323,6 +341,14 @@ module ReplTypeCompletor
         else
           klass.to_s
         end
+      end
+
+      def self.array_with_params(elem_type)
+        new(Array, { Types.array_elem_type_param => elem_type })
+      end
+
+      def self.hash_with_params(key_type, value_type)
+        new(Hash, { Types.hash_key_type_param => key_type, Types.hash_value_type_param => value_type })
       end
     end
 
@@ -405,7 +431,7 @@ module ReplTypeCompletor
 
     def self.array_of(*types)
       type = types.size >= 2 ? UnionType[*types] : types.first || OBJECT
-      InstanceType.new Array, Elem: type
+      InstanceType.array_with_params(type)
     end
 
     def self.from_rbs_type(return_type, self_type, extra_vars = {})
@@ -445,9 +471,9 @@ module ReplTypeCompletor
         PROC
       when RBS::Types::Tuple
         elem = UnionType[*return_type.types.map { from_rbs_type _1, self_type, extra_vars }]
-        InstanceType.new Array, Elem: elem
+        InstanceType.array_with_params(elem)
       when RBS::Types::Record
-        InstanceType.new Hash, K: SYMBOL, V: OBJECT
+        InstanceType.hash_with_params(Types::SYMBOL, Types::OBJECT)
       when RBS::Types::Literal
         InstanceType.new return_type.literal.class
       when RBS::Types::Variable
@@ -516,7 +542,7 @@ module ReplTypeCompletor
           _match_free_variable vars, arg, v, accumulator if v
         end
       in [RBS::Types::Tuple, InstanceType] if value.klass == Array
-        v = value.params[:Elem]
+        v = value.params[array_elem_type_param]
         rbs_type.types.each do |t|
           _match_free_variable vars, t, v, accumulator
         end

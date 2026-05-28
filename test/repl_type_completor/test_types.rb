@@ -11,14 +11,14 @@ module TestReplTypeCompletor
       nil_type = ReplTypeCompletor::Types::NIL
       string_type = ReplTypeCompletor::Types::STRING
       true_or_false = ReplTypeCompletor::Types::UnionType[true_type, false_type]
-      array_type = ReplTypeCompletor::Types::InstanceType.new Array, { Elem: true_or_false }
+      array_type = ReplTypeCompletor::Types::InstanceType.array_with_params(true_or_false)
       assert_equal 'nil', nil_type.inspect
       assert_equal 'true', true_type.inspect
       assert_equal 'false', false_type.inspect
       assert_equal 'String', string_type.inspect
       assert_equal 'Array', ReplTypeCompletor::Types::InstanceType.new(Array).inspect
       assert_equal 'false | true', true_or_false.inspect
-      assert_equal 'Array[Elem: false | true]', array_type.inspect
+      assert_equal "Array[#{ReplTypeCompletor::Types.array_elem_type_param}: false | true]", array_type.inspect
       assert_equal 'Array', array_type.inspect_without_params
       assert_equal 'Proc', ReplTypeCompletor::Types::PROC.inspect
       assert_equal 'Array.itself', ReplTypeCompletor::Types::SingletonType.new(Array).inspect
@@ -51,14 +51,14 @@ module TestReplTypeCompletor
       assert_equal Hash, hash_type.klass
       assert_equal Hash, bo_key_hash_type.klass
       assert_equal Hash, bo_value_hash_type.klass
-      assert_equal BasicObject, bo_arr_type.params[:Elem].klass
-      assert_equal BasicObject, bo_key_hash_type.params[:K].klass
-      assert_equal BasicObject, bo_value_hash_type.params[:V].klass
+      assert_equal BasicObject, bo_arr_type.params[ReplTypeCompletor::Types.array_elem_type_param].klass
+      assert_equal BasicObject, bo_key_hash_type.params[ReplTypeCompletor::Types.hash_key_type_param].klass
+      assert_equal BasicObject, bo_value_hash_type.params[ReplTypeCompletor::Types.hash_value_type_param].klass
       assert_equal 'Object', obj_type.inspect
       assert_equal 'Array[unresolved]', arr_type.inspect
-      assert_equal 'Array[Elem: Integer | String]', arr_type.tap(&:params).inspect
+      assert_equal "Array[#{ReplTypeCompletor::Types.array_elem_type_param}: Integer | String]", arr_type.tap(&:params).inspect
       assert_equal 'Hash[unresolved]', hash_type.inspect
-      assert_equal 'Hash[K: String, V: Symbol]', hash_type.tap(&:params).inspect
+      assert_equal "Hash[#{ReplTypeCompletor::Types.hash_key_type_param}: String, #{ReplTypeCompletor::Types.hash_value_type_param}: Symbol]", hash_type.tap(&:params).inspect
       assert_equal 'Array.itself', ReplTypeCompletor::Types.type_from_object(Array).inspect
       assert_equal 'ReplTypeCompletor.itself', ReplTypeCompletor::Types.type_from_object(ReplTypeCompletor).inspect
     end
@@ -109,14 +109,14 @@ module TestReplTypeCompletor
       type = ReplTypeCompletor::Types.type_from_object a
       assert_equal Array, type.klass
       10.times do |i|
-        elem_type = type.params[:Elem]
+        elem_type = type.params[ReplTypeCompletor::Types.array_elem_type_param]
         expected = i.even? ? [Array, String] : [Array, Symbol]
         assert_equal expected, elem_type.types.map(&:klass).sort_by(&:name)
         type = elem_type.types.find { _1.klass == Array }
       end
-      hash_type = type.params[:Elem].types.find { _1.klass == Hash }
+      hash_type = type.params[ReplTypeCompletor::Types.array_elem_type_param].types.find { _1.klass == Hash }
       assert_equal 'Hash[unresolved]', hash_type.inspect
-      assert_equal 'Hash[K: Integer, V: Float]', hash_type.tap(&:params).inspect
+      assert_equal "Hash[#{ReplTypeCompletor::Types.hash_key_type_param}: Integer, #{ReplTypeCompletor::Types.hash_value_type_param}: Float]", hash_type.tap(&:params).inspect
     end
 
     def test_infinite_nested_type_inspect
@@ -124,7 +124,30 @@ module TestReplTypeCompletor
       a << a
       type = ReplTypeCompletor::Types.type_from_object a
       assert_equal 'Array[unresolved]', type.inspect
-      assert_equal 'Array[Elem: Array[unresolved]]', type.tap(&:params).inspect
+      assert_equal "Array[#{ReplTypeCompletor::Types.array_elem_type_param}: Array[unresolved]]", type.tap(&:params).inspect
+    end
+
+    def test_array_hash_type_params_fallback
+      rbs_builder = ReplTypeCompletor::Types.instance_variable_get(:@rbs_builder)
+      assert_include [:E, :Elem], ReplTypeCompletor::Types.array_elem_type_param
+      assert_equal :K, ReplTypeCompletor::Types.hash_key_type_param
+      assert_equal :V, ReplTypeCompletor::Types.hash_value_type_param
+
+      ReplTypeCompletor::Types.instance_variable_set(:@rbs_builder, nil)
+      type_param_cach_ivars = %i[@array_elem_type_param @hash_type_params]
+      type_param_cach_ivars.each do |ivar|
+        assert ReplTypeCompletor::Types.instance_variable_get(ivar)
+        ReplTypeCompletor::Types.instance_variable_set(ivar, nil)
+      end
+
+      assert_equal :E, ReplTypeCompletor::Types.array_elem_type_param
+      assert_equal :K, ReplTypeCompletor::Types.hash_key_type_param
+      assert_equal :V, ReplTypeCompletor::Types.hash_value_type_param
+      type_param_cach_ivars.each do |ivar|
+        refute ReplTypeCompletor::Types.instance_variable_get(ivar)
+      end
+    ensure
+      ReplTypeCompletor::Types.instance_variable_set(:@rbs_builder, rbs_builder) if rbs_builder
     end
   end
 end
