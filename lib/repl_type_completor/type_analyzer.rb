@@ -177,15 +177,15 @@ module ReplTypeCompletor
             hash = method_call hash, :to_hash, [], nil, nil, scope
           end
           if hash.is_a?(Types::InstanceType) && hash.klass == Hash
-            keys << hash.params[:K] if hash.params[:K]
-            values << hash.params[:V] if hash.params[:V]
+            keys << hash.params[0] if hash.params[0]
+            values << hash.params[1] if hash.params[1]
           end
         end
       end
       if keys.empty? && values.empty?
-        Types::InstanceType.new Hash
+        Types::InstanceType.new(Hash)
       else
-        Types::InstanceType.new Hash, K: Types::UnionType[*keys], V: Types::UnionType[*values]
+        Types::InstanceType.new(Hash, [Types::UnionType[*keys], Types::UnionType[*values]])
       end
     end
 
@@ -706,7 +706,7 @@ module ReplTypeCompletor
       inner_scope = Scope.new scope, { Scope::BREAK_RESULT => nil }
       ary_type = method_call collection, :to_ary, [], nil, nil, nil, name_match: false
       element_types = ary_type.types.filter_map do |ary|
-        ary.params[:Elem] if ary.is_a?(Types::InstanceType) && ary.klass == Array
+        ary.params[0] if ary.is_a?(Types::InstanceType) && ary.klass == Array
       end
       element_type = Types::UnionType[*element_types]
       inner_scope.conditional do |s|
@@ -761,7 +761,7 @@ module ReplTypeCompletor
       beg_type = evaluate node.left, scope if node.left
       end_type = evaluate node.right, scope if node.right
       elem = (Types::UnionType[*[beg_type, end_type].compact]).nonnillable
-      Types::InstanceType.new Range, Elem: elem
+      Types::InstanceType.new(Range, [elem])
     end
 
     def evaluate_defined_node(node, scope)
@@ -958,7 +958,7 @@ module ReplTypeCompletor
       end
       # node.keyword_rest is Prism::KeywordRestParameterNode or Prism::ForwardingParameterNode or Prism::NoKeywordsParameterNode
       if node.keyword_rest.is_a?(Prism::KeywordRestParameterNode) && node.keyword_rest.name
-        scope[node.keyword_rest.name.to_s] = Types::InstanceType.new(Hash, K: Types::SYMBOL, V: Types::UnionType[*kwargs.values])
+        scope[node.keyword_rest.name.to_s] = Types::InstanceType.new(Hash, [Types::SYMBOL, Types::UnionType[*kwargs.values]])
       end
       if node.block&.name
         # node.block is Prism::BlockParameterNode
@@ -1143,7 +1143,7 @@ module ReplTypeCompletor
           true
         end
       end
-      array_elem = arrays.empty? ? nil : Types::UnionType[*arrays.map { _1.params[:Elem] || Types::OBJECT }]
+      array_elem = arrays.empty? ? nil : Types::UnionType[*arrays.map { _1.params[0] || Types::OBJECT }]
       non_array = non_arrays.empty? ? nil : Types::UnionType[*non_arrays]
       [array_elem, non_array]
     end
@@ -1152,7 +1152,7 @@ module ReplTypeCompletor
       methods = Types.rbs_methods receiver, method_name.to_sym, args, kwargs, !!block
       block_called = false
       type_breaks = methods.map do |method, given_params, method_params|
-        receiver_vars = receiver.is_a?(Types::InstanceType) ? receiver.params : {}
+        receiver_vars = receiver.is_a?(Types::InstanceType) ? receiver.named_params : {}
         free_vars = method.type.free_variables - receiver_vars.keys.to_set
         vars = receiver_vars.merge Types.match_free_variables(free_vars, method_params, given_params)
         if block && method.block && method.block.type.respond_to?(:required_positionals)
