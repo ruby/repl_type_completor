@@ -157,7 +157,7 @@ module ReplTypeCompletor
           args = args_types
           if kwargs_type&.any? && keyreqs.empty? && keyopts.empty? && keyrest.nil?
             kw_value_type = UnionType[*kwargs_type.values]
-            args += [InstanceType.new(Hash, K: SYMBOL, V: kw_value_type)]
+            args += [InstanceType.new(Hash, [SYMBOL, kw_value_type])]
           end
           if has_splat
             score += 1 if args.count(&:itself) <= reqs.size + opts.size + trailings.size
@@ -270,20 +270,29 @@ module ReplTypeCompletor
         @params ||= expand_params
       end
 
+      def named_params
+        return {} if params.empty?
+        if Types.rbs_builder
+          type_name = Types.rbs_absolute_type_name(Types.class_name_of(@klass))
+          names = Types.rbs_builder.build_instance(type_name)&.type_params rescue nil
+        end
+        names ? names.zip(params).to_h.compact : {}
+      end
+
       def expand_params
-        params = @raw_params || {}
+        params = @raw_params || []
         return params unless @instances
 
         if @klass == Array
           type = Types.union_type_from_objects_list(@instances)
-          { Elem: UnionType[*params[:Elem], *type] }
+          [UnionType[*params[0], *type]]
         elsif @klass == Hash
           key = Types.union_type_from_objects_list(@instances.map(&:keys))
           value = Types.union_type_from_objects_list(@instances.map(&:values))
-          {
-            K: UnionType[*params[:K], key],
-            V: UnionType[*params[:V], value]
-          }
+          [
+            UnionType[*params[0], key],
+            UnionType[*params[1], value]
+          ]
         else
           params
         end
@@ -308,7 +317,12 @@ module ReplTypeCompletor
         elsif params.empty?
           inspect_without_params
         else
-          params_string = "[#{params.map { "#{_1}: #{_2.inspect}" }.join(', ')}]"
+          named = named_params
+          if named.empty? && !params.empty?
+            params_string = "[#{params.map(&:inspect).join(', ')}]"
+          else
+            params_string = "[#{named.map { "#{_1}: #{_2.inspect}" }.join(', ')}]"
+          end
           "#{inspect_without_params}#{params_string}"
         end
       end
@@ -356,10 +370,10 @@ module ReplTypeCompletor
           in UnionType
             type.types.each(&collect)
           in InstanceType
-            params, instances = (instance_types[type.klass] ||= [{}, []])
+            params, instances = (instance_types[type.klass] ||= [[], []])
             type.instances&.each { instances << _1 }
-            type.raw_params&.each do |k, v|
-              (params[k] ||= []) << v
+            type.raw_params&.each_with_index do |v, index|
+              (params[index] ||= []) << v
             end
           in SingletonType
             singleton_types << type
@@ -367,7 +381,7 @@ module ReplTypeCompletor
         end
         types.each(&collect)
         @types = singleton_types.uniq + instance_types.map do |klass, (params, instances)|
-          params = params.transform_values { |v| UnionType[*v] }
+          params = params.map { |v| UnionType[*v] }
           InstanceType.new(klass, params, instances)
         end
       end
@@ -405,7 +419,7 @@ module ReplTypeCompletor
 
     def self.array_of(*types)
       type = types.size >= 2 ? UnionType[*types] : types.first || OBJECT
-      InstanceType.new Array, Elem: type
+      InstanceType.new(Array, [type])
     end
 
     def self.from_rbs_type(return_type, self_type, extra_vars = {})
@@ -445,19 +459,19 @@ module ReplTypeCompletor
         PROC
       when RBS::Types::Tuple
         elem = UnionType[*return_type.types.map { from_rbs_type _1, self_type, extra_vars }]
-        InstanceType.new Array, Elem: elem
+        InstanceType.new(Array, [elem])
       when RBS::Types::Record
-        InstanceType.new Hash, K: SYMBOL, V: OBJECT
+        InstanceType.new(Hash, [SYMBOL, OBJECT])
       when RBS::Types::Literal
         InstanceType.new return_type.literal.class
       when RBS::Types::Variable
         if extra_vars.key? return_type.name
           extra_vars[return_type.name]
         elsif self_type.is_a? InstanceType
-          self_type.params[return_type.name] || OBJECT
+          self_type.named_params[return_type.name] || OBJECT
         elsif self_type.is_a? UnionType
           types = self_type.types.filter_map do |t|
-            t.params[return_type.name] if t.is_a? InstanceType
+            t.named_params[return_type.name] if t.is_a? InstanceType
           end
           UnionType[*types]
         else
@@ -483,11 +497,9 @@ module ReplTypeCompletor
       when RBS::Types::ClassInstance
         klass = return_type.name.to_namespace.path.reduce(Object) { _1.const_get _2 }
         if return_type.args
-          args = return_type.args.map { from_rbs_type _1, self_type, extra_vars }
-          names = rbs_builder.build_singleton(return_type.name).type_params
-          params = names.map.with_index { [_1, args[_2] || OBJECT] }.to_h
+          params = return_type.args.map { from_rbs_type _1, self_type, extra_vars }
         end
-        InstanceType.new klass, params || {}
+        InstanceType.new(klass, params || [])
       else
         OBJECT
       end
@@ -512,11 +524,11 @@ module ReplTypeCompletor
       in [RBS::Types::ClassInstance, InstanceType]
         names = rbs_builder.build_singleton(rbs_type.name).type_params
         names.zip(rbs_type.args).each do |name, arg|
-          v = value.params[name]
+          v = value.named_params[name]
           _match_free_variable vars, arg, v, accumulator if v
         end
       in [RBS::Types::Tuple, InstanceType] if value.klass == Array
-        v = value.params[:Elem]
+        v = value.params[0]
         rbs_type.types.each do |t|
           _match_free_variable vars, t, v, accumulator
         end
