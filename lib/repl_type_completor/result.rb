@@ -52,13 +52,13 @@ module ReplTypeCompletor
           scope_constants = type.types.flat_map do |t|
             scope.table_module_constants(t.module_or_class) if t.is_a?(Types::SingletonType)
           end
-          (scope_constants.compact | type.constants.map(&:to_s)).sort
+          scope_constants.compact | type.constants.map(&:to_s)
         else
-          scope.constants.sort | RESERVED_WORDS
+          scope.constants | RESERVED_WORDS
         end
       in [:ivar, name, scope]
-        ivars = scope.instance_variables.sort
-        name == '@' ? ivars + scope.class_variables.sort : ivars
+        ivars = scope.instance_variables
+        name == '@' ? ivars + scope.class_variables : ivars
       in [:cvar, name, scope]
         scope.class_variables
       in [:gvar, name, scope]
@@ -70,13 +70,13 @@ module ReplTypeCompletor
         keys = receiver_type.types.grep(Types::InstanceType).select do |t|
           Hash == t.klass
         end.flat_map do |t|
-          t.instances.flat_map(&:keys).grep(key_type).uniq.sort
+          t.instances.flat_map(&:keys).grep(key_type).uniq
         end
         if key_type == Symbol
           keys = Symbol.all_symbols if keys.empty? && name.size >= 1
           filter_symbol_candidates(keys, name, limit: 100)
         else
-          keys.select { _1.start_with?(name) }.sort
+          keys
         end
       in [:call, name, type, self_call]
         (self_call ? type.all_methods : type.methods).map(&:to_s) - HIDDEN_METHODS
@@ -87,9 +87,12 @@ module ReplTypeCompletor
       end
 
       candidates.filter_map do
-        _1[name.size..] if _1.start_with?(name)
+        _1 if _1.start_with?(name)
       rescue EncodingError
-      end
+      end.sort_by do
+        # Alphabetical order, but internal methods (leading underscore) last
+        [_1.start_with?('_') ? 1 : 0, _1]
+      end.map { _1[name.size..] }
     rescue Exception => e
       ReplTypeCompletor.handle_exception(e)
       []

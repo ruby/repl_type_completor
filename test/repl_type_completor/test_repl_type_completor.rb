@@ -293,6 +293,33 @@ module TestReplTypeCompletor
       klass.define_method(method_name, original_method)
     end
 
+    def test_completion_candidates_are_sorted
+      xzyb, xzya, xzyc = 'b', 'a', 'c'
+      lvar_binding = binding
+
+      {
+        '1.' => empty_binding,     # [:call] with empty method name
+        "''.s" => empty_binding,   # [:call] with method name prefix
+        'Math::' => empty_binding, # [:call_or_const]
+        '$std' => empty_binding,   # [:gvar]
+        'xzy' => lvar_binding      # [:lvar_or_method]
+      }.each do |code, bind|
+        candidates = ReplTypeCompletor.analyze(code, binding: bind).completion_candidates
+        refute_empty candidates, "Expected completion candidates of #{code.inspect} not to be empty"
+        underscore, regular = candidates.partition { _1.start_with?('_') }
+        assert_equal regular.sort + underscore.sort, candidates, "Expected completion candidates of #{code.inspect} to be sorted with underscore methods last"
+      end
+
+      # Internal methods (leading underscore, e.g. __id__ and __send__) are listed last
+      candidates = ReplTypeCompletor.analyze('1.', binding: empty_binding).completion_candidates
+      assert candidates.any? { _1.start_with?('_') }
+      refute candidates.first.start_with?('_')
+      assert candidates.last.start_with?('_')
+
+      # Local variables xzyb, xzya, xzyc are defined in non-alphabetical order
+      assert_equal [xzya, xzyb, xzyc], ReplTypeCompletor.analyze('xzy', binding: lvar_binding).completion_candidates
+    end
+
     def test_analyze_error
       with_failing_method(ReplTypeCompletor.singleton_class, :analyze_code, 'error_in_analyze_code') do
         assert_nil ReplTypeCompletor.analyze('1.', binding: binding)
