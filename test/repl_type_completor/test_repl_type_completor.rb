@@ -293,31 +293,41 @@ module TestReplTypeCompletor
       klass.define_method(method_name, original_method)
     end
 
-    def test_completion_candidates_are_sorted
-      xzyb, xzya, xzyc = 'b', 'a', 'c'
-      lvar_binding = binding
+    def test_call_candidates_are_sorted_with_underscore_methods_last
+      type = Struct.new(:methods).new(%i[_zeta beta _alpha alpha])
+      result = ReplTypeCompletor::Result.new([:call, '', type, false], binding, __FILE__)
 
-      {
-        '1.' => empty_binding,     # [:call] with empty method name
-        "''.s" => empty_binding,   # [:call] with method name prefix
-        'Math::' => empty_binding, # [:call_or_const]
-        '$std' => empty_binding,   # [:gvar]
-        'xzy' => lvar_binding      # [:lvar_or_method]
-      }.each do |code, bind|
-        candidates = ReplTypeCompletor.analyze(code, binding: bind).completion_candidates
-        refute_empty candidates, "Expected completion candidates of #{code.inspect} not to be empty"
-        underscore, regular = candidates.partition { _1.start_with?('_') }
-        assert_equal regular.sort + underscore.sort, candidates, "Expected completion candidates of #{code.inspect} to be sorted with underscore methods last"
-      end
+      assert_equal %w[alpha beta _alpha _zeta], result.completion_candidates
+    end
 
-      # Internal methods (leading underscore, e.g. __id__ and __send__) are listed last
-      candidates = ReplTypeCompletor.analyze('1.', binding: empty_binding).completion_candidates
-      assert candidates.any? { _1.start_with?('_') }
-      refute candidates.first.start_with?('_')
-      assert candidates.last.start_with?('_')
+    def test_call_or_const_candidates_are_sorted_within_groups
+      type = Struct.new(:methods, :constants).new(%i[z_method a_method], %i[ZConst AConst])
+      result = ReplTypeCompletor::Result.new([:call_or_const, '', type, false], binding, __FILE__)
 
-      # Local variables xzyb, xzya, xzyc are defined in non-alphabetical order
-      assert_equal [xzya, xzyb, xzyc], ReplTypeCompletor.analyze('xzy', binding: lvar_binding).completion_candidates
+      assert_equal %w[a_method z_method AConst ZConst], result.completion_candidates
+    end
+
+    def test_const_candidates_are_sorted_before_reserved_words
+      scope = Struct.new(:constants).new(%w[ZConst AConst])
+      result = ReplTypeCompletor::Result.new([:const, '', nil, scope], binding, __FILE__)
+
+      assert_equal %w[AConst ZConst] + ReplTypeCompletor::Result::RESERVED_WORDS, result.completion_candidates
+    end
+
+    def test_ivar_candidates_are_sorted_within_groups
+      scope = Struct.new(:instance_variables, :class_variables).new(%w[@z @a], %w[@@z @@a])
+      result = ReplTypeCompletor::Result.new([:ivar, '@', scope], binding, __FILE__)
+
+      assert_equal %w[a z @a @z], result.completion_candidates
+    end
+
+    def test_lvar_or_method_candidates_are_sorted_within_groups
+      type = Struct.new(:all_methods).new(%i[z_method a_method])
+      scope = Struct.new(:self_type, :local_variables).new(type, %w[z_local a_local])
+      result = ReplTypeCompletor::Result.new([:lvar_or_method, '', scope], binding, __FILE__)
+
+      expected = %w[a_local z_local a_method z_method] + ReplTypeCompletor::Result::RESERVED_WORDS
+      assert_equal expected, result.completion_candidates
     end
 
     def test_analyze_error

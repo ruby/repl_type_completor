@@ -46,23 +46,23 @@ module ReplTypeCompletor
       in [:require_relative, name]
         RequirePaths.require_relative_completions(name, @source_file)
       in [:call_or_const, name, type, self_call]
-        ((self_call ? type.all_methods : type.methods).map(&:to_s) - HIDDEN_METHODS) | type.constants
+        ((self_call ? type.all_methods : type.methods).map(&:to_s) - HIDDEN_METHODS).sort | type.constants.sort
       in [:const, name, type, scope]
         if type
           scope_constants = type.types.flat_map do |t|
             scope.table_module_constants(t.module_or_class) if t.is_a?(Types::SingletonType)
           end
-          scope_constants.compact | type.constants.map(&:to_s)
+          (scope_constants.compact | type.constants.map(&:to_s)).sort
         else
-          scope.constants | RESERVED_WORDS
+          scope.constants.sort | RESERVED_WORDS
         end
       in [:ivar, name, scope]
-        ivars = scope.instance_variables
-        name == '@' ? ivars + scope.class_variables : ivars
+        ivars = scope.instance_variables.sort
+        name == '@' ? ivars + scope.class_variables.sort : ivars
       in [:cvar, name, scope]
-        scope.class_variables
+        scope.class_variables.sort
       in [:gvar, name, scope]
-        scope.global_variables
+        scope.global_variables.sort
       in [:symbol, name]
         filter_symbol_candidates(Symbol.all_symbols, name, limit: 100)
       in [:aref, key_type, name, receiver_type]
@@ -76,23 +76,22 @@ module ReplTypeCompletor
           keys = Symbol.all_symbols if keys.empty? && name.size >= 1
           filter_symbol_candidates(keys, name, limit: 100)
         else
-          keys
+          keys.sort
         end
       in [:call, name, type, self_call]
         (self_call ? type.all_methods : type.methods).map(&:to_s) - HIDDEN_METHODS
       in [:lvar_or_method, name, scope]
-        scope.self_type.all_methods.map(&:to_s) | scope.local_variables | RESERVED_WORDS
+        scope.local_variables.sort | scope.self_type.all_methods.map(&:to_s).sort | RESERVED_WORDS
       else
         []
       end
 
-      candidates.filter_map do
+      candidates = candidates.filter_map do
         _1 if _1.start_with?(name)
       rescue EncodingError
-      end.sort_by do
-        # Alphabetical order, but internal methods (leading underscore) last
-        [_1.start_with?('_') ? 1 : 0, _1]
-      end.map { _1[name.size..] }
+      end
+      candidates.sort_by! { [_1.start_with?('_') ? 1 : 0, _1] } if @analyze_result.first == :call
+      candidates.map { _1[name.size..] }
     rescue Exception => e
       ReplTypeCompletor.handle_exception(e)
       []
