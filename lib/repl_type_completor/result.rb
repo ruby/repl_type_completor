@@ -79,19 +79,21 @@ module ReplTypeCompletor
           keys.sort
         end
       in [:call, name, type, self_call]
-        (self_call ? type.all_methods : type.methods).map(&:to_s) - HIDDEN_METHODS
+        methods = (self_call ? type.all_methods : type.methods).map(&:to_s) - HIDDEN_METHODS
+        # Alphabetical order, but internal methods (leading underscore) last.
+        # `_1[0] == '_'` because `start_with?('_')` raises EncodingError if the
+        # method name's encoding is incompatible with US-ASCII.
+        methods.sort_by { [_1[0] == '_' ? 1 : 0, _1] }
       in [:lvar_or_method, name, scope]
         scope.local_variables.sort | scope.self_type.all_methods.map(&:to_s).sort | RESERVED_WORDS
       else
         []
       end
 
-      candidates = candidates.filter_map do
-        _1 if _1.start_with?(name)
+      candidates.filter_map do
+        _1[name.size..] if _1.start_with?(name)
       rescue EncodingError
       end
-      candidates.sort_by! { [_1.start_with?('_') ? 1 : 0, _1] } if @analyze_result.first == :call
-      candidates.map { _1[name.size..] }
     rescue Exception => e
       ReplTypeCompletor.handle_exception(e)
       []
