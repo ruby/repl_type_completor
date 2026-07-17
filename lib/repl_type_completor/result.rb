@@ -46,7 +46,7 @@ module ReplTypeCompletor
       in [:require_relative, name]
         RequirePaths.require_relative_completions(name, @source_file)
       in [:call_or_const, name, type, self_call]
-        ((self_call ? type.all_methods : type.methods).map(&:to_s) - HIDDEN_METHODS) | type.constants
+        ((self_call ? type.all_methods : type.methods).map(&:to_s) - HIDDEN_METHODS).sort | type.constants.sort
       in [:const, name, type, scope]
         if type
           scope_constants = type.types.flat_map do |t|
@@ -60,9 +60,9 @@ module ReplTypeCompletor
         ivars = scope.instance_variables.sort
         name == '@' ? ivars + scope.class_variables.sort : ivars
       in [:cvar, name, scope]
-        scope.class_variables
+        scope.class_variables.sort
       in [:gvar, name, scope]
-        scope.global_variables
+        scope.global_variables.sort
       in [:symbol, name]
         filter_symbol_candidates(Symbol.all_symbols, name, limit: 100)
       in [:aref, key_type, name, receiver_type]
@@ -70,18 +70,22 @@ module ReplTypeCompletor
         keys = receiver_type.types.grep(Types::InstanceType).select do |t|
           Hash == t.klass
         end.flat_map do |t|
-          t.instances.flat_map(&:keys).grep(key_type).uniq.sort
+          t.instances.flat_map(&:keys).grep(key_type).uniq
         end
         if key_type == Symbol
           keys = Symbol.all_symbols if keys.empty? && name.size >= 1
           filter_symbol_candidates(keys, name, limit: 100)
         else
-          keys.select { _1.start_with?(name) }.sort
+          keys.sort
         end
       in [:call, name, type, self_call]
-        (self_call ? type.all_methods : type.methods).map(&:to_s) - HIDDEN_METHODS
+        methods = (self_call ? type.all_methods : type.methods).map(&:to_s) - HIDDEN_METHODS
+        # Alphabetical order, but internal methods (leading underscore) last.
+        # `_1[0] == '_'` because `start_with?('_')` raises EncodingError if the
+        # method name's encoding is incompatible with US-ASCII.
+        methods.sort_by { [_1[0] == '_' ? 1 : 0, _1] }
       in [:lvar_or_method, name, scope]
-        scope.self_type.all_methods.map(&:to_s) | scope.local_variables | RESERVED_WORDS
+        scope.local_variables.sort | scope.self_type.all_methods.map(&:to_s).sort | RESERVED_WORDS
       else
         []
       end
