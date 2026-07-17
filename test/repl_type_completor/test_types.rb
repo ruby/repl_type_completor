@@ -94,6 +94,32 @@ module TestReplTypeCompletor
       assert_include type.all_methods, :rand
     end
 
+    def type_from_rbs(rbs_string)
+      ReplTypeCompletor::Types.load_rbs_builder unless ReplTypeCompletor::Types.rbs_builder
+      rbs_type = RBS::Parser.parse_type(rbs_string)
+      ReplTypeCompletor::Types.from_rbs_type(rbs_type, ReplTypeCompletor::Types::OBJECT)
+    end
+
+    def test_interface_type
+      to_int = type_from_rbs('::_ToInt')
+      assert_equal '_ToInt', to_int.inspect
+      assert_equal [:to_int], to_int.methods
+      assert ReplTypeCompletor::Types.intersect?(ReplTypeCompletor::Types::FLOAT, to_int)
+      assert ReplTypeCompletor::Types.intersect?(to_int, ReplTypeCompletor::Types::FLOAT)
+      refute ReplTypeCompletor::Types.intersect?(ReplTypeCompletor::Types::STRING, to_int)
+
+      to_ary = type_from_rbs('::_ToAry[::Integer]')
+      assert_equal '_ToAry[Integer]', to_ary.inspect
+      return_type = ReplTypeCompletor::Types.method_return_type(to_ary, :to_ary)
+      assert_equal Array, return_type.klass
+      assert_equal Integer, return_type.params[0].klass
+    end
+
+    def test_alias_type_expansion
+      int_type = type_from_rbs('::int')
+      assert_equal 'Integer | _ToInt', int_type.inspect
+    end
+
     def test_basic_object_methods
       bo = BasicObject.new
       def bo.foobar; end
