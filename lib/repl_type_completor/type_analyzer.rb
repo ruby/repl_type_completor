@@ -1152,7 +1152,7 @@ module ReplTypeCompletor
       methods = Types.rbs_methods receiver, method_name.to_sym, args, kwargs, !!block
       block_called = false
       type_breaks = methods.map do |method, given_params, method_params|
-        receiver_vars = receiver.is_a?(Types::InstanceType) ? receiver.named_params : {}
+        receiver_vars = receiver.is_a?(Types::InstanceType) || receiver.is_a?(Types::InterfaceType) ? receiver.named_params : {}
         free_vars = method.type.free_variables - receiver_vars.keys.to_set
         vars = receiver_vars.merge Types.match_free_variables(free_vars, method_params, given_params)
         if block && method.block && method.block.type.respond_to?(:required_positionals)

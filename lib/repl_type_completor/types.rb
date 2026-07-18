@@ -8,6 +8,7 @@ require_relative 'methods'
 module ReplTypeCompletor
   module Types
     OBJECT_TO_TYPE_SAMPLE_SIZE = 50
+    EXPANSION_NESTING_LIMIT = 3
 
     singleton_class.attr_reader :rbs_builder, :rbs_load_error
 
@@ -75,6 +76,11 @@ module ReplTypeCompletor
     def self.rbs_search_method(klass, method_name, singleton)
       return unless rbs_builder
 
+      if klass.is_a? InterfaceType
+        definition = klass.definition
+        return definition && definition.methods[method_name]
+      end
+
       klass.ancestors.each do |ancestor|
         next unless (name = Methods::MODULE_NAME_METHOD.bind_call(ancestor))
 
@@ -93,6 +99,8 @@ module ReplTypeCompletor
           [t, t.module_or_class, true]
         in InstanceType
           [t, t.klass, false]
+        in InterfaceType
+          [t, t, false]
         end
       end
       types = receivers.flat_map do |receiver_type, klass, singleton|
@@ -115,6 +123,8 @@ module ReplTypeCompletor
           t.module_or_class
         in InstanceType
           t.instances
+        in InterfaceType
+          nil
         end
       end.flatten
       instances = instances.sample(OBJECT_TO_TYPE_SAMPLE_SIZE) if instances.size > OBJECT_TO_TYPE_SAMPLE_SIZE
@@ -136,6 +146,8 @@ module ReplTypeCompletor
           [t, t.module_or_class, true]
         in InstanceType
           [t, t.klass, false]
+        in InterfaceType
+          [t, t, false]
         end
       end
       has_splat = args_types.include?(nil)
@@ -193,7 +205,14 @@ module ReplTypeCompletor
       end
 
       aa, bb = [atypes, btypes].map {|types| (types[InstanceType] || []).map(&:klass) }
-      (aa.flat_map(&:ancestors) & bb).any?
+      return true if (aa.flat_map(&:ancestors) & bb).any?
+
+      [[atypes[InterfaceType], b], [btypes[InterfaceType], a]].any? do |interfaces, other|
+        interfaces&.any? do |interface|
+          methods = interface.methods
+          !methods.empty? && other.types.any? { |t| (methods - t.methods).empty? }
+        end
+      end
     end
 
     def self.type_from_object(object)
@@ -340,6 +359,38 @@ module ReplTypeCompletor
       end
     end
 
+    class InterfaceType
+      attr_reader :name, :args
+
+      def initialize(name, args = [])
+        @name = name
+        @args = args
+      end
+
+      def definition
+        return @definition if defined?(@definition)
+
+        @definition = (Types.rbs_builder&.build_interface(@name) rescue nil)
+      end
+
+      def transform() = yield(self)
+      def methods() = definition ? definition.methods.keys : []
+      def all_methods() = methods
+
+      def named_params
+        definition ? definition.type_params.zip(@args).to_h.compact : {}
+      end
+
+      def constants() = []
+      def types() = [self]
+      def nillable?() = false
+      def nonnillable() = self
+
+      def inspect
+        args.empty? ? name.name.to_s : "#{name.name}[#{args.map(&:inspect).join(', ')}]"
+      end
+    end
+
     NIL = InstanceType.new NilClass
     OBJECT = InstanceType.new Object
     TRUE = InstanceType.new TrueClass
@@ -364,6 +415,7 @@ module ReplTypeCompletor
       def initialize(*types)
         @types = []
         singleton_types = []
+        interface_types = {}
         instance_types = {}
         collect = -> type do
           case type
@@ -377,10 +429,12 @@ module ReplTypeCompletor
             end
           in SingletonType
             singleton_types << type
+          in InterfaceType
+            interface_types[[type.name, type.args]] ||= type
           end
         end
         types.each(&collect)
-        @types = singleton_types.uniq + instance_types.map do |klass, (params, instances)|
+        @types = singleton_types.uniq + interface_types.values + instance_types.map do |klass, (params, instances)|
           params = params.map { |v| UnionType[*v] }
           InstanceType.new(klass, params, instances)
         end
@@ -422,7 +476,15 @@ module ReplTypeCompletor
       InstanceType.new(Array, [type])
     end
 
-    def self.from_rbs_type(return_type, self_type, extra_vars = {})
+    # Alias may validly recurse through type args (`type json = Integer | Array[json]`)
+    # and can expand exponentially (`type b = a | [a]` chains), so expansion is depth limited.
+    def self.expand_alias_type(rbs_type, nesting)
+      return if nesting >= EXPANSION_NESTING_LIMIT
+
+      rbs_builder.expand_alias2 rbs_type.name, rbs_type.args rescue nil
+    end
+
+    def self.from_rbs_type(return_type, self_type, extra_vars = {}, nesting = 0)
       case return_type
       when RBS::Types::Bases::Self
         self_type
@@ -434,12 +496,13 @@ module ReplTypeCompletor
         self_type.transform do |type|
           case type
           in SingletonType
-            InstanceType.new(self_type.module_or_class.is_a?(Class) ? Class : Module)
+            InstanceType.new(type.module_or_class.is_a?(Class) ? Class : Module)
           in InstanceType
             SingletonType.new type.klass
+          in InterfaceType
+            CLASS
           end
         end
-        UnionType[*types]
       when RBS::Types::Bases::Bool
         BOOLEAN
       when RBS::Types::Bases::Instance
@@ -454,11 +517,11 @@ module ReplTypeCompletor
         end
       when RBS::Types::Union, RBS::Types::Intersection
         # Intersection is unsupported. fallback to union type
-        UnionType[*return_type.types.map { from_rbs_type _1, self_type, extra_vars }]
+        UnionType[*return_type.types.map { from_rbs_type _1, self_type, extra_vars, nesting }]
       when RBS::Types::Proc
         PROC
       when RBS::Types::Tuple
-        elem = UnionType[*return_type.types.map { from_rbs_type _1, self_type, extra_vars }]
+        elem = UnionType[*return_type.types.map { from_rbs_type _1, self_type, extra_vars, nesting }]
         InstanceType.new(Array, [elem])
       when RBS::Types::Record
         InstanceType.new(Hash, [SYMBOL, OBJECT])
@@ -467,37 +530,28 @@ module ReplTypeCompletor
       when RBS::Types::Variable
         if extra_vars.key? return_type.name
           extra_vars[return_type.name]
-        elsif self_type.is_a? InstanceType
+        elsif self_type.is_a?(InstanceType) || self_type.is_a?(InterfaceType)
           self_type.named_params[return_type.name] || OBJECT
         elsif self_type.is_a? UnionType
           types = self_type.types.filter_map do |t|
-            t.named_params[return_type.name] if t.is_a? InstanceType
+            t.named_params[return_type.name] if t.is_a?(InstanceType) || t.is_a?(InterfaceType)
           end
           UnionType[*types]
         else
           OBJECT
         end
       when RBS::Types::Optional
-        UnionType[from_rbs_type(return_type.type, self_type, extra_vars), NIL]
+        UnionType[from_rbs_type(return_type.type, self_type, extra_vars, nesting), NIL]
       when RBS::Types::Alias
-        case return_type.name.name
-        when :int
-          INTEGER
-        when :boolish
-          BOOLEAN
-        when :string
-          STRING
-        else
-          # TODO: ???
-          OBJECT
-        end
+        expanded = expand_alias_type(return_type, nesting)
+        expanded ? from_rbs_type(expanded, self_type, extra_vars, nesting + 1) : OBJECT
       when RBS::Types::Interface
-        # unimplemented
-        OBJECT
+        args = return_type.args.map { from_rbs_type _1, self_type, extra_vars, nesting }
+        InterfaceType.new return_type.name, args
       when RBS::Types::ClassInstance
         klass = return_type.name.to_namespace.path.reduce(Object) { _1.const_get _2 }
         if return_type.args
-          params = return_type.args.map { from_rbs_type _1, self_type, extra_vars }
+          params = return_type.args.map { from_rbs_type _1, self_type, extra_vars, nesting }
         end
         InstanceType.new(klass, params || [])
       else
@@ -517,7 +571,7 @@ module ReplTypeCompletor
       accumulator.transform_values { UnionType[*_1] }
     end
 
-    def self._match_free_variable(vars, rbs_type, value, accumulator)
+    def self._match_free_variable(vars, rbs_type, value, accumulator, nesting = 0)
       case [rbs_type, value]
       in [RBS::Types::Variable,]
         (accumulator[rbs_type.name] ||= []) << value if vars.include? rbs_type.name
@@ -525,16 +579,16 @@ module ReplTypeCompletor
         names = rbs_builder.build_singleton(rbs_type.name).type_params
         names.zip(rbs_type.args).each do |name, arg|
           v = value.named_params[name]
-          _match_free_variable vars, arg, v, accumulator if v
+          _match_free_variable vars, arg, v, accumulator, nesting if v
         end
       in [RBS::Types::Tuple, InstanceType] if value.klass == Array
         v = value.params[0]
         rbs_type.types.each do |t|
-          _match_free_variable vars, t, v, accumulator
+          _match_free_variable vars, t, v, accumulator, nesting
         end
       in [RBS::Types::Record, InstanceType] if value.klass == Hash
         # TODO
-      in [RBS::Types::Interface,]
+      in [RBS::Types::Interface,] if nesting < EXPANSION_NESTING_LIMIT
         definition = rbs_builder.build_interface rbs_type.name
         convert = {}
         definition.type_params.zip(rbs_type.args).each do |from, arg|
@@ -546,13 +600,20 @@ module ReplTypeCompletor
           return_type = method_return_type value, method_name
           method.defs.each do |method_def|
             interface_return_type = method_def.type.type.return_type
-            _match_free_variable convert, interface_return_type, return_type, ac
+            _match_free_variable convert, interface_return_type, return_type, ac, nesting + 1
           end
         end
         convert.each do |from, to|
           values = ac[from]
           (accumulator[to] ||= []).concat values if values
         end
+      in [RBS::Types::Union,]
+        rbs_type.types.each do |t|
+          _match_free_variable vars, t, value, accumulator, nesting
+        end
+      in [RBS::Types::Alias,]
+        expanded = expand_alias_type(rbs_type, nesting)
+        _match_free_variable vars, expanded, value, accumulator, nesting + 1 if expanded
       else
       end
     end

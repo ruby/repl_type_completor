@@ -774,6 +774,8 @@ module TestReplTypeCompletor
     def test_array_aref
       assert_call('[1][0..].', include: [Array, NilClass], exclude: Integer)
       assert_call('[1][0].', include: Integer, exclude: [Array, NilClass])
+      # Float matches the `int` index param by duck typing (Float#to_int)
+      assert_call('[1][0.5].', include: Integer, exclude: Array)
       assert_call('[1].[](0).', include: Integer, exclude: [Array, NilClass])
       assert_call('[1].[](0){}.', include: Integer, exclude: [Array, NilClass])
     end

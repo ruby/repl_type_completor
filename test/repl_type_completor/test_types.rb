@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'repl_type_completor'
+require 'tmpdir'
 require_relative './helper'
 
 module TestReplTypeCompletor
@@ -92,6 +93,104 @@ module TestReplTypeCompletor
       assert_not_include type.methods, :foobaz
       assert_include type.all_methods, :foobaz
       assert_include type.all_methods, :rand
+    end
+
+    def type_from_rbs(rbs_string)
+      ReplTypeCompletor::Types.load_rbs_builder unless ReplTypeCompletor::Types.rbs_builder
+      rbs_type = RBS::Parser.parse_type(rbs_string)
+      ReplTypeCompletor::Types.from_rbs_type(rbs_type, ReplTypeCompletor::Types::OBJECT)
+    end
+
+    def test_interface_type
+      to_int = type_from_rbs('::_ToInt')
+      assert_equal '_ToInt', to_int.inspect
+      assert_equal [:to_int], to_int.methods
+      assert ReplTypeCompletor::Types.intersect?(ReplTypeCompletor::Types::FLOAT, to_int)
+      assert ReplTypeCompletor::Types.intersect?(to_int, ReplTypeCompletor::Types::FLOAT)
+      refute ReplTypeCompletor::Types.intersect?(ReplTypeCompletor::Types::STRING, to_int)
+
+      to_ary = type_from_rbs('::_ToAry[::Integer]')
+      assert_equal '_ToAry[Integer]', to_ary.inspect
+      return_type = ReplTypeCompletor::Types.method_return_type(to_ary, :to_ary)
+      assert_equal Array, return_type.klass
+      assert_equal Integer, return_type.params[0].klass
+    end
+
+    def test_alias_type_expansion
+      int_type = type_from_rbs('::int')
+      assert_equal 'Integer | _ToInt', int_type.inspect
+    end
+
+    def with_isolated_rbs_env(rbs_source)
+      Dir.mktmpdir do |dir|
+        File.write File.join(dir, 'test.rbs'), rbs_source
+        loader = RBS::EnvironmentLoader.new core_root: nil
+        loader.add path: Pathname(dir)
+        env = RBS::Environment.from_loader(loader)
+        builder = RBS::DefinitionBuilder.new env: env.resolve_type_names
+        original_builder = ReplTypeCompletor::Types.rbs_builder
+        begin
+          ReplTypeCompletor::Types.instance_variable_set :@rbs_builder, builder
+          yield
+        ensure
+          ReplTypeCompletor::Types.instance_variable_set :@rbs_builder, original_builder
+        end
+      end
+    end
+
+    def test_recursive_alias_type_expansion
+      rbs_source = <<~RBS
+        type json = Integer | Array[json] | Hash[String, json]
+        type unguarded = unguarded | Integer
+        type opt = [opt]? | Integer
+        type a = Integer | [a]
+        type b = a | [a]
+        type c = b | [b]
+        type d = c | [c]
+        type e = d | [d]
+        interface _Generic[T]
+          def get: () -> T
+        end
+        type generic_rec = _Generic[generic_rec] | Integer
+      RBS
+      with_isolated_rbs_env rbs_source do
+        json_type = type_from_rbs('::json')
+        assert_equal [Array, Hash, Integer], json_type.types.map(&:klass).sort_by(&:name)
+        json_elem = json_type.types.find { _1.klass == Array }.params[0]
+        assert_include json_elem.types.map(&:klass), Integer
+
+        # Invalid in RBS (RecursiveTypeAliasError by `rbs validate`) but loadable
+        assert_include type_from_rbs('::unguarded').types.map(&:klass), Integer
+
+        # Recursion through optional and interface type args
+        assert_include type_from_rbs('::opt').types.map(&:klass), Integer
+        generic_rec_type = type_from_rbs('::generic_rec')
+        assert_include generic_rec_type.types.grep(ReplTypeCompletor::Types::InstanceType).map(&:klass), Integer
+
+        # Exponentially expanding alias chain
+        assert_include type_from_rbs('::e').types.map(&:klass), Array
+      end
+    end
+
+    def test_cyclic_generic_interface_match
+      rbs_source = <<~RBS
+        interface _CycA[T]
+          def a: () -> _CycB[T]
+        end
+        interface _CycB[T]
+          def b: () -> _CycA[T]
+        end
+      RBS
+      with_isolated_rbs_env rbs_source do
+        var = RBS::Types::Variable.new(name: :X, location: nil)
+        cyclic = RBS::Types::Interface.new(
+          name: ReplTypeCompletor::Types.rbs_absolute_type_name('_CycA'),
+          args: [var],
+          location: nil
+        )
+        matched = ReplTypeCompletor::Types.match_free_variables([:X], [cyclic], [ReplTypeCompletor::Types::INTEGER])
+        assert_kind_of Hash, matched
+      end
     end
 
     def test_basic_object_methods
