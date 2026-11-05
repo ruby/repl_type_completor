@@ -37,6 +37,10 @@ module ReplTypeCompletor
           gem_sig_path = File.expand_path("#{spec.gem_dir}/sig")
           loader.add(library: spec.name, version: spec.version) if Dir.exist?(gem_sig_path) && expanded_sig_path != gem_sig_path
         end
+        # A gem's sig/manifest.yaml can declare dependencies on stdlib libraries that
+        # the installed RBS version does not ship (e.g. prism >= 2.0 depends on pp,
+        # which was added in RBS 3.3). Skip those instead of failing to load everything.
+        loader.libs.delete_if { |lib| !loader.has_library?(library: lib.name, version: lib.version) }
       end
 
       # Hack to make this thread priority lower, not to block the main thread.

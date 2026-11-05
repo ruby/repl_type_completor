@@ -69,7 +69,7 @@ module ReplTypeCompletor
     end
 
     def analyze_code(code, binding = Object::TOPLEVEL_BINDING)
-      ast = Prism.parse(code, scopes: [binding.local_variables]).value
+      ast = Prism.parse(code, scopes: [binding.local_variables], **prism_parse_options).value
       *parents, target_node = find_target ast, code.bytesize
       return unless target_node
 
@@ -132,6 +132,18 @@ module ReplTypeCompletor
         [:ivar, target_node.name.to_s, calculate_scope.call]
       when Prism::ClassVariableReadNode, Prism::ClassVariableTargetNode
         [:cvar, target_node.name.to_s, calculate_scope.call]
+      end
+    end
+
+    # Parse with the syntax of the running Ruby so that completion matches what will be executed.
+    # Fall back to Prism's default when `version: "current"` is not available (Prism < 1.6)
+    # or the running Ruby version is unknown to the installed Prism (Ruby < 3.3, or a newer Ruby).
+    def prism_parse_options
+      @prism_parse_options ||= begin
+        Prism.parse('', version: 'current')
+        { version: 'current' }.freeze
+      rescue ArgumentError # includes Prism::CurrentVersionError
+        {}.freeze
       end
     end
 

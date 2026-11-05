@@ -612,6 +612,8 @@ module TestReplTypeCompletor
     end
 
     def test_it_parameter
+      # `it` is a method call rather than a block parameter before Ruby 3.4
+      omit 'it block parameter is not available' if RUBY_VERSION < '3.4'
       assert_call('->{it.', include: Object, exclude: NilClass)
       assert_call('->{p it; it=:a; it.', include: Symbol, exclude: Object)
       assert_call('1.tap{it.', include: Integer)
