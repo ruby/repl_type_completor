@@ -81,7 +81,10 @@ module TestReplTypeCompletor
       assert_completion('unknown[:other_k', include: ['ey1', 'ey2', 'ey3'])
       assert_completion('unknown["other_k', exclude: ['ey1', 'ey2', 'ey3']) # no candidates for string keys
       assert_completion('Class[:other_k', include: ['ey1', 'ey2', 'ey3'])
-      assert_completion('hash1.slice(unknown)[:other_k', include: ['ey1', 'ey2', 'ey3'])
+      assert_completion('hash1.slice(unknown)[:other_k', binding: bind, include: ['ey1', 'ey2', 'ey3'])
+      assert_completion('Hash.new[:', exclude: ['key1', 'key2', 'key3'])
+      assert_completion('Hash.new[:other_k', include: ['ey1', 'ey2', 'ey3'])
+      assert_completion('Hash.new["other_k', exclude: ['ey1', 'ey2', 'ey3'])
     end
 
     def test_symbol
