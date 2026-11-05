@@ -10,9 +10,9 @@ module TestReplTypeCompletor
     end
 
     def teardown
-      if ReplTypeCompletor.last_completion_error
-        raise ReplTypeCompletor.last_completion_error
+      if (error = ReplTypeCompletor.last_completion_error)
         ReplTypeCompletor.instance_variable_set(:@last_completion_error, nil)
+        raise error
       end
     end
 
@@ -115,6 +115,19 @@ module TestReplTypeCompletor
       assert_nil(ReplTypeCompletor.analyze(':"bin"', binding: binding))
       # `ex()` should not complete `ex()it`
       assert_nil(ReplTypeCompletor.analyze('ex()', binding: binding))
+    end
+
+    def test_string_no_completion
+      [
+        '"', "'", '"a', '%(', '%q(',
+        'x = "', '[1, "', '{ a: "', 'if "', 'return "',
+        'foo("', 'foo.bar "', 'self.require "',
+        'foo("a", "', 'require "a", "', 'obj[1, "', 'obj[*"', 'obj[k: "', 'require k: "',
+        '%w[a', '"a" "b', '"a#{1}b', 'require "a#{1}b', 'obj["a#{1}b', '"#{"',
+      ].each do |code|
+        assert_nil(ReplTypeCompletor.analyze(code, binding: empty_binding), code)
+        assert_nil(ReplTypeCompletor.last_completion_error, code)
+      end
     end
 
     def test_lvar
