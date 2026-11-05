@@ -45,7 +45,7 @@ module ReplTypeCompletor
 
     def info
       require 'rbs'
-      prism_info = "Prism: #{Prism::VERSION}"
+      prism_info = "#{Prism}: #{Prism::VERSION}"
       rbs_info = "RBS: #{RBS::VERSION}"
       if rbs_load_error
         rbs_info << " #{rbs_load_error.inspect}"

@@ -3,9 +3,17 @@
 require 'set'
 require_relative 'types'
 require_relative 'scope'
-require 'prism'
-
 module ReplTypeCompletor
+  # Prefer Ruby::Prism, the parser built into the interpreter (Ruby 4.1+),
+  # over the prism gem. Every reference to Prism in this gem is lexically
+  # inside the ReplTypeCompletor module, so it resolves to this constant.
+  if defined?(Ruby::Prism)
+    Prism = Ruby::Prism
+  else
+    require 'prism'
+    Prism = ::Prism
+  end
+
   class TypeAnalyzer
     class DigTarget
       def initialize(parents, receiver, &block)
