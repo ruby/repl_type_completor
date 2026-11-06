@@ -68,7 +68,7 @@ module ReplTypeCompletor
       in [:aref, key_type, name, receiver_type]
         key_type = key_type == :string ? String : Symbol
         keys = receiver_type.types.grep(Types::InstanceType).select do |t|
-          Hash == t.klass
+          Hash == t.klass && t.instances
         end.flat_map do |t|
           t.instances.flat_map(&:keys).grep(key_type).uniq
         end
