@@ -81,6 +81,8 @@ module ReplTypeCompletor
         return if target_node.opening == "?" || (target_node.closing_loc && !target_node.closing.empty?)
 
         call_node = single_arg_call_node(parents) # require("target") or require_relative("target")
+        return unless call_node
+
         if call_node.receiver.nil? && (call_node.name == :require || call_node.name == :require_relative)
           [call_node.name, target_node.content]
         elsif call_node.receiver && call_node.name == :[] # object["target"]
