@@ -369,7 +369,7 @@ module TestReplTypeCompletor
     end
 
     def test_info
-      assert_equal "ReplTypeCompletor: #{ReplTypeCompletor::VERSION}, Prism: #{Prism::VERSION}, RBS: #{RBS::VERSION}", ReplTypeCompletor.info
+      assert_equal "ReplTypeCompletor: #{ReplTypeCompletor::VERSION}, #{ReplTypeCompletor::Prism}: #{ReplTypeCompletor::Prism::VERSION}, RBS: #{RBS::VERSION}", ReplTypeCompletor.info
     end
   end
 end
