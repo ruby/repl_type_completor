@@ -1117,7 +1117,7 @@ module ReplTypeCompletor
         evaluate_multi_write_receiver node.expression, scope, evaluated_receivers if node.expression
       else
         if node.type == :error_recovery_node && node.unexpected
-          evaluate_multi_write_receiver node.unexpected, scope, evaluated_receivers
+          evaluate node.unexpected, scope
         end
       end
     end
