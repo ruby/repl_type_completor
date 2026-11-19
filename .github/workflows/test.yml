@@ -53,6 +53,8 @@ jobs:
         prism: ['latest', '2.1.0', '2.0.0', '1.9.0', '1.7.0', '1.5.0', '1.0.0']
     env:
       GEMFILE_PRISM_VERSION: ${{ matrix.prism }}
+      # prism <= 1.2.0 builds libprism with -Werror and hits a dangling-pointer warning on GCC 15 (fixed in ruby/prism#3658)
+      CFLAGS: ${{ matrix.prism == '1.0.0' && '-Wno-error=dangling-pointer' || '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
