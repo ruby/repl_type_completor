@@ -1,5 +1,5 @@
 # frozen_string_literal: true
 
 module ReplTypeCompletor
-  VERSION = "0.1.17"
+  VERSION = "0.1.18"
 end
