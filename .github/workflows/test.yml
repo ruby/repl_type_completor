@@ -22,7 +22,7 @@ jobs:
         ruby: ${{ fromJson(needs.ruby-versions.outputs.versions) }}
     steps:
       - uses: actions/checkout@v4
-      - uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@145243922b4465b78e04dd66294782c7de45901f # v1.345.0
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
@@ -39,7 +39,7 @@ jobs:
       GEMFILE_RBS_VERSION: ${{ matrix.rbs }}
     steps:
       - uses: actions/checkout@v4
-      - uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@145243922b4465b78e04dd66294782c7de45901f # v1.345.0
         with:
           ruby-version: ${{ fromJson(needs.ruby-versions.outputs.latest) }}
           bundler-cache: true
@@ -57,7 +57,7 @@ jobs:
       CFLAGS: ${{ matrix.prism == '1.0.0' && '-Wno-error=dangling-pointer' || '' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@145243922b4465b78e04dd66294782c7de45901f # v1.345.0
         with:
           # Ruby >= 4.1 uses Ruby::Prism instead of the prism gem
           ruby-version: '4.0'
